@@ -18,6 +18,7 @@ export const env = {
       'NEXT_PUBLIC_SUPABASE_URL',
       'NEXT_PUBLIC_SUPABASE_ANON_KEY',
       'DATABASE_URL'
+      // NEXT_PUBLIC_STORAGE_URL is optional since we can derive it from SUPABASE_URL
     ];
     
     const missingVars = requiredVars.filter(
