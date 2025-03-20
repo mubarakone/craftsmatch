@@ -1,5 +1,4 @@
 import { pgTable, text, uuid, timestamp, boolean, integer, doublePrecision, jsonb } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
 import { users } from './users';
 import { products } from './products';
 

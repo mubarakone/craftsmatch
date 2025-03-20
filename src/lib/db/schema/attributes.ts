@@ -1,5 +1,4 @@
 import { pgTable, text, uuid, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
 import { categories } from './categories';
 
 export const attributes = pgTable('attributes', {

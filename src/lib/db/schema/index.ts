@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // This file will export all schemas
 // For now it's just a placeholder until we implement the actual schemas in step 4
 
@@ -15,8 +16,8 @@ export * from './reviews';
 
 // Import relations
 import { users } from './users';
-import { craftsmanProfiles, craftsmanProfilesRelations } from './craftsman-profiles';
-import { builderProfiles, builderProfilesRelations } from './builder-profiles';
+import { craftsmanProfiles } from './craftsman-profiles';
+import { builderProfiles } from './builder-profiles';
 import { categories } from './categories';
 import { attributes } from './attributes';
 import { products, productImages, productAttributes, inventory } from './products';

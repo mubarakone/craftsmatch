@@ -1,9 +1,4 @@
 import { pgTable, text, uuid, timestamp, boolean } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
-
-// Import forward references for relations
-import type { craftsmanProfiles } from './craftsman-profiles';
-import type { builderProfiles } from './builder-profiles';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
