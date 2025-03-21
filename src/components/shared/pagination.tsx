@@ -1,120 +1,150 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
-  onPageChange: (page: number) => void;
-  className?: string;
+  baseUrl: string;
+  searchParams: Record<string, string | string[] | undefined>;
 }
 
 export function Pagination({
   currentPage,
   totalPages,
-  onPageChange,
-  className,
+  baseUrl,
+  searchParams,
 }: PaginationProps) {
-  // Generate page numbers to display
-  const getPageNumbers = () => {
-    const pageNumbers = [];
-    const maxPagesToShow = 5;
+  const router = useRouter();
+
+  const createPageUrl = (page: number) => {
+    const params = new URLSearchParams();
     
-    if (totalPages <= maxPagesToShow) {
-      // Show all pages if total is less than or equal to maxPagesToShow
-      for (let i = 1; i <= totalPages; i++) {
-        pageNumbers.push(i);
+    // Add all existing search params except page
+    Object.entries(searchParams).forEach(([key, value]) => {
+      if (key !== "page" && value !== undefined) {
+        if (Array.isArray(value)) {
+          value.forEach(v => params.append(key, v));
+        } else {
+          params.append(key, value);
+        }
       }
-    } else {
-      // Always show first page
-      pageNumbers.push(1);
-      
-      // Calculate start and end of page range
-      let startPage = Math.max(2, currentPage - 1);
-      let endPage = Math.min(totalPages - 1, currentPage + 1);
-      
-      // Adjust if at edges
-      if (currentPage <= 2) {
-        endPage = 3;
-      } else if (currentPage >= totalPages - 1) {
-        startPage = totalPages - 2;
-      }
-      
-      // Add ellipsis before if needed
-      if (startPage > 2) {
-        pageNumbers.push("ellipsis-start");
-      }
-      
-      // Add page numbers
-      for (let i = startPage; i <= endPage; i++) {
-        pageNumbers.push(i);
-      }
-      
-      // Add ellipsis after if needed
-      if (endPage < totalPages - 1) {
-        pageNumbers.push("ellipsis-end");
-      }
-      
-      // Always show last page
-      pageNumbers.push(totalPages);
-    }
+    });
     
-    return pageNumbers;
+    // Add the new page param
+    params.set("page", page.toString());
+    
+    return `${baseUrl}?${params.toString()}`;
   };
 
-  const pageNumbers = getPageNumbers();
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    router.push(createPageUrl(page));
+  };
 
   if (totalPages <= 1) {
     return null;
   }
 
+  // Generate page numbers
+  const getPageItems = () => {
+    const items = [];
+    const maxItems = 7; // Maximum number of page items to show
+    const sideItems = 1; // Number of pages to show on each side of current page
+
+    // Always include first page
+    items.push(1);
+
+    // Calculate start and end of range
+    let rangeStart = Math.max(2, currentPage - sideItems);
+    let rangeEnd = Math.min(totalPages - 1, currentPage + sideItems);
+
+    // Adjust range to show max items if possible
+    if (rangeEnd - rangeStart + 3 < maxItems) {
+      rangeStart = Math.max(2, Math.min(rangeStart, totalPages - maxItems + 2));
+      rangeEnd = Math.min(totalPages - 1, Math.max(rangeEnd, maxItems - 3));
+    }
+
+    // Add ellipsis before range if needed
+    if (rangeStart > 2) {
+      items.push(-1);
+    }
+
+    // Add range of pages
+    for (let i = rangeStart; i <= rangeEnd; i++) {
+      items.push(i);
+    }
+
+    // Add ellipsis after range if needed
+    if (rangeEnd < totalPages - 1) {
+      items.push(-2);
+    }
+
+    // Always include last page if there is more than one page
+    if (totalPages > 1) {
+      items.push(totalPages);
+    }
+
+    return items;
+  };
+
+  const pageItems = getPageItems();
+
   return (
-    <div className={cn("flex items-center justify-center space-x-1", className)}>
+    <nav className="flex justify-center items-center space-x-1 mt-8">
       <Button
         variant="outline"
         size="icon"
         className="h-8 w-8"
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
+        disabled={currentPage <= 1}
+        onClick={() => handlePageChange(currentPage - 1)}
       >
         <ChevronLeft className="h-4 w-4" />
         <span className="sr-only">Previous page</span>
       </Button>
-      
-      {pageNumbers.map((page, index) => {
-        if (page === "ellipsis-start" || page === "ellipsis-end") {
+
+      {pageItems.map((page, i) => {
+        if (page < 0) {
           return (
-            <div
-              key={`ellipsis-${page}`}
-              className="flex h-8 w-8 items-center justify-center"
+            <Button
+              key={`ellipsis-${i}`}
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 cursor-default"
+              disabled
             >
-              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-            </div>
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">More pages</span>
+            </Button>
           );
         }
-        
+
         return (
           <Button
-            key={index}
+            key={page}
             variant={currentPage === page ? "default" : "outline"}
+            size="icon"
             className="h-8 w-8"
-            onClick={() => onPageChange(page as number)}
+            onClick={() => handlePageChange(page)}
           >
             {page}
+            <span className="sr-only">Page {page}</span>
           </Button>
         );
       })}
-      
+
       <Button
         variant="outline"
         size="icon"
         className="h-8 w-8"
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
+        disabled={currentPage >= totalPages}
+        onClick={() => handlePageChange(currentPage + 1)}
       >
         <ChevronRight className="h-4 w-4" />
         <span className="sr-only">Next page</span>
       </Button>
-    </div>
+    </nav>
   );
 } 

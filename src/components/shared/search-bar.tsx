@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -11,40 +11,47 @@ interface SearchBarProps {
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
+  defaultValue?: string;
 }
 
 export function SearchBar({
   placeholder = "Search for products, materials, or artisans...",
   className,
   autoFocus,
+  defaultValue = "",
 }: SearchBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get("q") || "");
+  const [searchTerm, setSearchTerm] = useState(
+    defaultValue || searchParams?.get("query") || ""
+  );
 
   useEffect(() => {
-    // Update the input when the search param changes
-    setQuery(searchParams.get("q") || "");
+    setSearchTerm(searchParams?.get("query") || "");
   }, [searchParams]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSearch = (e: FormEvent) => {
     e.preventDefault();
-    if (query.trim()) {
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`);
-    }
+    
+    if (!searchTerm.trim()) return;
+    
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set("query", searchTerm);
+    params.set("page", "1");
+    
+    router.push(`/marketplace?${params.toString()}`);
   };
 
   const handleClear = () => {
-    setQuery("");
-    if (searchParams.has("q")) {
-      // If we're on the search page, reset the search
-      router.push("/search");
+    setSearchTerm("");
+    if (searchParams.has("query")) {
+      router.push("/marketplace");
     }
   };
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={handleSearch}
       className={cn("relative w-full max-w-md", className)}
     >
       <div className="relative">
@@ -53,11 +60,11 @@ export function SearchBar({
           type="search"
           placeholder={placeholder}
           className="pl-10 pr-10"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
           autoFocus={autoFocus}
         />
-        {query && (
+        {searchTerm && (
           <button
             type="button"
             onClick={handleClear}
@@ -72,7 +79,7 @@ export function SearchBar({
           size="sm"
           variant="ghost"
           className="absolute right-0 top-0 h-full rounded-l-none px-3"
-          disabled={!query.trim()}
+          disabled={!searchTerm.trim()}
         >
           Search
         </Button>

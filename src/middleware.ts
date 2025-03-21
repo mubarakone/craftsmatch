@@ -11,6 +11,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api") ||
     pathname.startsWith("/static") ||
     pathname.startsWith("/auth") ||
+    pathname.startsWith("/marketplace") ||
+    pathname.startsWith("/products") && !pathname.includes("/manage/") && !pathname.includes("/edit") ||
     pathname === "/"
   ) {
     return NextResponse.next();

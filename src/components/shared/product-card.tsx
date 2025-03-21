@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -5,28 +7,46 @@ import { Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 
-interface ProductCardProps {
+interface ProductImage {
   id: string;
-  title: string;
+  imageUrl: string;
+  altText: string | null;
+  isMain: boolean;
+}
+
+interface Product {
+  id: string;
+  name: string;
   price: number;
-  image: string;
-  category: string;
-  artisan: string;
-  rating?: number;
+  discountPrice?: number | null;
+  craftmanId: string;
+  categoryId?: string | null;
+  isPublished: boolean;
+  slug: string;
+  description: string;
+  images?: ProductImage[];
+  craftsman?: {
+    name?: string;
+  };
+  category?: {
+    name?: string;
+    slug?: string;
+  };
+  // Add any other properties needed
+}
+
+interface ProductCardProps {
+  product: Product;
   className?: string;
 }
 
-export function ProductCard({
-  id,
-  title,
-  price,
-  image,
-  category,
-  artisan,
-  rating,
-  className,
-}: ProductCardProps) {
+export function ProductCard({ product, className }: ProductCardProps) {
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Find the main image or the first image
+  const productImage = product.images && product.images.length > 0
+    ? (product.images.find(img => img.isMain) || product.images[0])
+    : null;
 
   const toggleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -35,15 +55,21 @@ export function ProductCard({
 
   return (
     <Card className={cn("overflow-hidden", className)}>
-      <Link href={`/products/${id}`}>
+      <Link href={`/products/${product.id}`}>
         <div className="relative aspect-square overflow-hidden">
-          <Image
-            src={image}
-            alt={title}
-            fill
-            className="object-cover transition-transform hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
+          {productImage ? (
+            <Image
+              src={productImage.imageUrl}
+              alt={productImage.altText || product.name}
+              fill
+              className="object-cover transition-transform hover:scale-105"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full bg-gray-100">
+              <span className="text-gray-400">No image</span>
+            </div>
+          )}
           <button
             onClick={toggleFavorite}
             className="absolute top-2 right-2 rounded-full bg-white/80 p-1.5 backdrop-blur-sm transition-colors hover:bg-white"
@@ -60,45 +86,39 @@ export function ProductCard({
         <CardContent className="p-4">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                {category}
-              </p>
-              <h3 className="font-medium leading-tight">{title}</h3>
-              <p className="text-sm text-muted-foreground">by {artisan}</p>
+              {product.category && (
+                <p className="text-sm font-medium text-muted-foreground">
+                  {product.category.name}
+                </p>
+              )}
+              <h3 className="font-medium leading-tight">{product.name}</h3>
+              {product.craftsman && (
+                <p className="text-sm text-muted-foreground">
+                  by {product.craftsman.name || 'Unknown Craftsman'}
+                </p>
+              )}
             </div>
-            <p className="font-semibold">${price.toFixed(2)}</p>
+            <div>
+              {product.discountPrice ? (
+                <div className="text-right">
+                  <p className="font-semibold text-red-600">${product.discountPrice.toFixed(2)}</p>
+                  <p className="text-sm line-through text-muted-foreground">${product.price.toFixed(2)}</p>
+                </div>
+              ) : (
+                <p className="font-semibold">${product.price.toFixed(2)}</p>
+              )}
+            </div>
           </div>
         </CardContent>
         <CardFooter className="border-t p-4">
-          {rating && (
-            <div className="flex items-center">
-              <div className="flex">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <svg
-                    key={i}
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill={i < Math.floor(rating) ? "currentColor" : "none"}
-                    stroke="currentColor"
-                    className={cn(
-                      "h-4 w-4",
-                      i < Math.floor(rating)
-                        ? "text-amber-500"
-                        : "text-gray-300"
-                    )}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-                    />
-                  </svg>
-                ))}
-              </div>
-              <span className="ml-1 text-sm">{rating.toFixed(1)}</span>
-            </div>
-          )}
+          <div className="w-full flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">
+              {product.isPublished ? 'Available' : 'Coming Soon'}
+            </span>
+            <span className="text-sm font-medium text-blue-600 hover:text-blue-800">
+              View Details
+            </span>
+          </div>
         </CardFooter>
       </Link>
     </Card>

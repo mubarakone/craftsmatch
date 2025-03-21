@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, Pencil } from "lucide-react";
@@ -11,11 +11,11 @@ import { formatCurrency } from "@/lib/utils";
 import { requireAuth } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
-  title: "Product Details",
-  description: "View and manage your product",
+  title: "Manage Product",
+  description: "View and manage your product as a seller",
 };
 
-export default async function ProductPage({ params }: { params: { id: string } }) {
+export default async function ManageProductPage({ params }: { params: { id: string } }) {
   const session = await requireAuth();
   const product = await getProductById(params.id);
 

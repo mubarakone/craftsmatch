@@ -1,65 +1,54 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Suspense } from "react";
+import { FeaturedProducts } from "@/components/marketplace/featured-products";
+import { ArtisanSpotlight } from "@/components/marketplace/artisan-spotlight";
+import { HeroSection } from "@/components/marketplace/hero-section";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="container mx-auto py-12">
-      <div className="flex flex-col items-center justify-center space-y-8 text-center">
-        <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">
-          CraftsMatch
-        </h1>
-        <p className="max-w-[700px] text-lg text-muted-foreground">
-          Connecting artisanal craftsmen with builders and designers. 
-          A marketplace for unique and quality building materials.
-        </p>
-        <div className="space-x-4">
-          <Button size="lg">Get Started</Button>
-          <Button size="lg" variant="outline">Learn More</Button>
-        </div>
+    <main>
+      <HeroSection />
+      
+      <div className="container py-16 space-y-16">
+        <Suspense fallback={<div>Loading products...</div>}>
+          <FeaturedProducts />
+        </Suspense>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+        <Suspense fallback={<div>Loading artisans...</div>}>
+          <ArtisanSpotlight />
+        </Suspense>
+        
+        <section id="how-it-works" className="py-10">
+          <h2 className="text-3xl font-bold text-center mb-10">How It Works</h2>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>For Craftsmen</CardTitle>
-              <CardDescription>Showcase your artisanal craftsmanship</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>List your unique products and connect with builders and designers looking for quality materials.</p>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full bg-black text-white hover:bg-gray-800">Join as Craftsman</Button>
-            </CardFooter>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>How It Works</CardTitle>
-              <CardDescription>Our marketplace platform</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>A secure platform connecting craftsmen and builders, with sample requests, custom orders, and more.</p>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full">Learn More</Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>For Builders</CardTitle>
-              <CardDescription>Find unique building materials</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>Discover high-quality artisanal materials for your construction and design projects.</p>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full bg-black text-white hover:bg-gray-800">Join as Builder</Button>
-            </CardFooter>
-          </Card>
-
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white p-6 rounded-lg shadow-sm text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 text-xl font-bold mb-4">1</div>
+              <h3 className="text-xl font-semibold mb-2">Browse & Discover</h3>
+              <p className="text-gray-600">
+                Explore unique handcrafted products or find skilled craftsmen for custom work
+              </p>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow-sm text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 text-xl font-bold mb-4">2</div>
+              <h3 className="text-xl font-semibold mb-2">Connect & Customize</h3>
+              <p className="text-gray-600">
+                Message artisans directly to discuss details, request samples, or customize orders
+              </p>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow-sm text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 text-xl font-bold mb-4">3</div>
+              <h3 className="text-xl font-semibold mb-2">Purchase & Review</h3>
+              <p className="text-gray-600">
+                Complete your purchase securely and leave feedback after receiving your item
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
