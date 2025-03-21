@@ -12,6 +12,10 @@ export const env = {
   // Environment
   NODE_ENV: process.env.NODE_ENV || 'development',
   
+  // Shipping APIs (placeholders for future implementation)
+  SHIPPING_API_KEY: process.env.SHIPPING_API_KEY || '',
+  SHIPPING_CARRIER_API_ENDPOINT: process.env.SHIPPING_CARRIER_API_ENDPOINT || 'https://api.example.com/shipping',
+  
   // Check if a required environment variable is missing
   validateEnv: () => {
     const requiredVars = [
@@ -19,6 +23,7 @@ export const env = {
       'NEXT_PUBLIC_SUPABASE_ANON_KEY',
       'DATABASE_URL'
       // NEXT_PUBLIC_STORAGE_URL is optional since we can derive it from SUPABASE_URL
+      // SHIPPING_API_KEY and SHIPPING_CARRIER_API_ENDPOINT are optional for now
     ];
     
     const missingVars = requiredVars.filter(
