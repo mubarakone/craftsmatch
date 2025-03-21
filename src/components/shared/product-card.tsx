@@ -61,7 +61,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
             <Image
               src={productImage.imageUrl}
               alt={productImage.altText || product.name}
-              fill
+              fill={true}
               className="object-cover transition-transform hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
