@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MainNav } from "./main-nav";
-import { MobileNav } from "./mobile-nav";
+import { MobileNavigation } from "@/components/mobile/mobile-navigation";
 
 export function SiteHeader() {
   return (
@@ -28,7 +28,7 @@ export function SiteHeader() {
               Sign Up
             </Link>
           </div>
-          <MobileNav />
+          <MobileNavigation />
         </div>
       </div>
     </header>

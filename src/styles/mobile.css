@@ -1,0 +1,137 @@
+/**
+ * Mobile-specific styles for the CraftsMatch application
+ */
+
+/* Mobile-specific typography adjustments */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.75rem !important;
+    line-height: 2rem !important;
+  }
+  
+  h2 {
+    font-size: 1.5rem !important;
+    line-height: 1.75rem !important;
+  }
+  
+  h3 {
+    font-size: 1.25rem !important;
+    line-height: 1.5rem !important;
+  }
+  
+  p, li, a {
+    font-size: 0.9375rem !important;
+  }
+}
+
+/* Mobile navigation enhancements */
+.mobile-nav-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 40;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.mobile-nav-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 85%;
+  max-width: 300px;
+  background-color: white;
+  z-index: 50;
+  transform: translateX(0);
+  animation: slideIn 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile-specific animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Mobile filter adjustments */
+.mobile-filter-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 75vh;
+  background-color: white;
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+  z-index: 40;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.1);
+  transform: translateY(0);
+  animation: slideUp 0.3s ease-in-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Mobile gallery optimizations */
+.mobile-gallery-view {
+  position: relative;
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+}
+
+.mobile-gallery-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.mobile-gallery-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background-color: #d1d5db;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.mobile-gallery-dot.active {
+  background-color: #6366f1;
+  transform: scale(1.25);
+}
+
+/* Mobile-optimized touch targets */
+@media (max-width: 768px) {
+  button, 
+  .btn, 
+  a.nav-link,
+  .interactive-element {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    padding: 0.5rem 1rem !important;
+  }
+  
+  input, 
+  select, 
+  textarea {
+    min-height: 44px !important;
+    font-size: 1rem !important;
+  }
+  
+  /* Increase spacing between interactive elements */
+  .mobile-spaced > * + * {
+    margin-top: 1rem !important;
+  }
+} 
