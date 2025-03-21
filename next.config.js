@@ -32,6 +32,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Improve error handling for production
+  productionBrowserSourceMaps: true,
+  // Modify React strict mode for compatibility
+  reactStrictMode: false,
 };
 
 module.exports = nextConfig;
