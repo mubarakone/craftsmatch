@@ -10,21 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-
-const craftsmanProfileSchema = z.object({
-  businessName: z.string().min(2, "Business name must be at least 2 characters"),
-  description: z.string().min(20, "Description must be at least 20 characters"),
-  specialization: z.string().min(2, "Specialization must be at least 2 characters"),
-  yearsOfExperience: z.string().refine(
-    (val) => !isNaN(Number(val)) && Number(val) >= 0,
-    "Years of experience must be a valid number"
-  ),
-  location: z.string().min(2, "Location must be at least 2 characters"),
-  phoneNumber: z.string().optional(),
-  website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-});
-
-type CraftsmanProfileFormValues = z.infer<typeof craftsmanProfileSchema>;
+import { craftsmanProfileSchema, CraftsmanProfileFormValues } from "@/lib/validators/profile";
+import { updateUserRole, completeOnboarding } from "@/lib/auth/role-actions";
 
 interface CraftsmanProfileFormProps {
   userId: string;
@@ -50,16 +37,8 @@ export function CraftsmanProfileForm({ userId }: CraftsmanProfileFormProps) {
     try {
       const supabase = createClient();
       
-      // Update user record first
-      const { error: userError } = await supabase
-        .from("users")
-        .update({ 
-          user_role: "craftsman",
-          is_onboarded: true
-        })
-        .eq("auth_id", userId);
-
-      if (userError) throw userError;
+      // Update user role first
+      await updateUserRole("craftsman", userId);
 
       // Get the user's database ID
       const { data: userData, error: fetchError } = await supabase
@@ -76,15 +55,18 @@ export function CraftsmanProfileForm({ userId }: CraftsmanProfileFormProps) {
         .insert({
           user_id: userData.id,
           business_name: data.businessName,
-          description: data.description,
           specialization: data.specialization,
           years_of_experience: parseInt(data.yearsOfExperience),
+          description: data.description,
           location: data.location,
           phone_number: data.phoneNumber || null,
           website: data.website || null,
         });
 
       if (profileError) throw profileError;
+
+      // Mark user as onboarded
+      await completeOnboarding(userId);
 
       // Redirect to dashboard
       router.push("/dashboard/craftsman");

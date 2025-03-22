@@ -10,8 +10,13 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/static") ||
-    pathname.startsWith("/auth") ||
+    pathname.startsWith("/sign-in") ||
+    pathname.startsWith("/sign-up") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
     pathname.startsWith("/marketplace") ||
+    pathname.startsWith("/about") ||
+    pathname.startsWith("/craftsmen") ||
     pathname.startsWith("/products") && !pathname.includes("/manage/") && !pathname.includes("/edit") ||
     pathname === "/"
   ) {
@@ -23,7 +28,7 @@ export async function middleware(request: NextRequest) {
 
   // If user is not signed in and the route is not public, redirect to sign in
   if (!session) {
-    const redirectUrl = new URL("/auth/sign-in", request.url);
+    const redirectUrl = new URL("/sign-in", request.url);
     redirectUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(redirectUrl);
   }

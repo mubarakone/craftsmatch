@@ -10,17 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-
-const builderProfileSchema = z.object({
-  companyName: z.string().min(2, "Company name must be at least 2 characters"),
-  description: z.string().min(20, "Description must be at least 20 characters"),
-  projectTypes: z.string().min(2, "Project types must be at least 2 characters"),
-  location: z.string().min(2, "Location must be at least 2 characters"),
-  phoneNumber: z.string().optional(),
-  website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-});
-
-type BuilderProfileFormValues = z.infer<typeof builderProfileSchema>;
+import { builderProfileSchema, BuilderProfileFormValues } from "@/lib/validators/profile";
+import { updateUserRole, completeOnboarding } from "@/lib/auth/role-actions";
 
 interface BuilderProfileFormProps {
   userId: string;
@@ -46,16 +37,8 @@ export function BuilderProfileForm({ userId }: BuilderProfileFormProps) {
     try {
       const supabase = createClient();
       
-      // Update user record first
-      const { error: userError } = await supabase
-        .from("users")
-        .update({ 
-          user_role: "builder",
-          is_onboarded: true
-        })
-        .eq("auth_id", userId);
-
-      if (userError) throw userError;
+      // Update user role first
+      await updateUserRole("builder", userId);
 
       // Get the user's database ID
       const { data: userData, error: fetchError } = await supabase
@@ -80,6 +63,9 @@ export function BuilderProfileForm({ userId }: BuilderProfileFormProps) {
         });
 
       if (profileError) throw profileError;
+
+      // Mark user as onboarded
+      await completeOnboarding(userId);
 
       // Redirect to dashboard
       router.push("/dashboard/builder");

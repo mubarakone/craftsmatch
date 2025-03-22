@@ -1,9 +1,7 @@
 import { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
+import { RoleSelectionForm } from "@/components/auth/role-selection-form";
 
 export const metadata: Metadata = {
   title: "Select Your Role | CraftsMatch",
@@ -39,30 +37,8 @@ export default async function RoleSelectionPage() {
         Choose your role to get started
       </p>
 
-      <div className="mt-8 space-y-10">
-        <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-          <h2 className="text-xl font-medium">Craftsman</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Showcase and sell your hand-crafted building materials to builders looking for quality artisanal products.
-          </p>
-          <div className="mt-4">
-            <Link href="/craftsman-signup">
-              <Button className="w-full">Continue as Craftsman</Button>
-            </Link>
-          </div>
-        </div>
-
-        <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-          <h2 className="text-xl font-medium">Builder</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Find unique, high-quality building materials crafted by skilled artisans for your construction projects.
-          </p>
-          <div className="mt-4">
-            <Link href="/builder-signup">
-              <Button className="w-full">Continue as Builder</Button>
-            </Link>
-          </div>
-        </div>
+      <div className="mt-8">
+        <RoleSelectionForm />
       </div>
     </>
   );

@@ -58,7 +58,7 @@ export function ResetPasswordForm() {
 
       setSuccess("Password reset successful!");
       setTimeout(() => {
-        router.push("/auth/sign-in");
+        router.push("/sign-in");
       }, 2000);
     } catch (error: any) {
       setError(error.message || "An error occurred. Please try again.");

@@ -95,7 +95,7 @@ function SignInForm() {
             <Label htmlFor="password">Password</Label>
             <div className="text-sm">
               <Link 
-                href="/auth/forgot-password" 
+                href="/forgot-password" 
                 className="text-blue-600 hover:text-blue-500"
               >
                 Forgot your password?
@@ -134,7 +134,7 @@ function SignInForm() {
       <div className="mt-6 text-center text-sm">
         <p>
           Don&apos;t have an account?{" "}
-          <Link href="/auth/sign-up" className="text-blue-600 hover:text-blue-500">
+          <Link href="/sign-up" className="text-blue-600 hover:text-blue-500">
             Sign up
           </Link>
         </p>
@@ -179,7 +179,7 @@ function SignUpForm() {
       
       setSuccess("Registration successful! Please check your email to verify your account.");
       setTimeout(() => {
-        router.push("/auth/sign-in");
+        router.push("/sign-in");
       }, 3000);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
@@ -265,7 +265,7 @@ function SignUpForm() {
       <div className="mt-6 text-center text-sm">
         <p>
           Already have an account?{" "}
-          <Link href="/auth/sign-in" className="text-blue-600 hover:text-blue-500">
+          <Link href="/sign-in" className="text-blue-600 hover:text-blue-500">
             Sign in
           </Link>
         </p>
@@ -296,7 +296,7 @@ function ForgotPasswordForm() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) throw error;
@@ -358,7 +358,7 @@ function ForgotPasswordForm() {
       <div className="mt-6 text-center text-sm">
         <p>
           Remember your password?{" "}
-          <Link href="/auth/sign-in" className="text-blue-600 hover:text-blue-500">
+          <Link href="/sign-in" className="text-blue-600 hover:text-blue-500">
             Sign in
           </Link>
         </p>

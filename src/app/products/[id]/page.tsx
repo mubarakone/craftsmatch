@@ -206,7 +206,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   Contact
                 </Button>
               ) : (
-                <Link href="/auth/sign-in" className="ml-auto">
+                <Link href="/sign-in" className="ml-auto">
                   <Button variant="outline" size="sm">
                     Sign in to Contact
                   </Button>
@@ -221,7 +221,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             ) : session ? (
               <Button className="w-full" disabled>Builders Only</Button>
             ) : (
-              <Link href="/auth/sign-in" className="w-full">
+              <Link href="/sign-in" className="w-full">
                 <Button className="w-full">
                   <LogIn className="h-4 w-4 mr-2" />
                   Sign in to Purchase
