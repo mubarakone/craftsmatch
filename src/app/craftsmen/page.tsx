@@ -1,12 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
   title: "Craftsmen Directory | CraftsMatch",
   description: "Browse our directory of skilled craftsmen and artisans.",
 };
+
+// Add dynamic configuration to prevent static build
+export const dynamic = 'force-dynamic';
 
 // Mock craftsmen data to use when database fetch fails
 const mockCraftsmen = [
@@ -61,9 +63,17 @@ const mockCraftsmen = [
 ];
 
 async function getCraftsmen() {
-  const supabase = createClient();
-  
+  // During build time, just return mock data
+  if (process.env.NEXT_BUILD === 'true') {
+    return mockCraftsmen;
+  }
+
+  // At runtime, try to fetch from the database
   try {
+    // Dynamically import to avoid build-time issues
+    const { createClient } = await import('@/lib/supabase/server');
+    const supabase = await createClient();
+    
     // Fetch from the database
     const { data, error } = await supabase
       .from("craftsman_profiles")

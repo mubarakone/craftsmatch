@@ -1,11 +1,22 @@
-import { createClient } from '@/lib/supabase/server';
+'use server';
 
-// Mock data types
+import { db } from '@/lib/db';
+import { 
+  conversations, 
+  messages, 
+  attachments, 
+  users 
+} from '@/lib/db/schema';
+import { eq, and, or, desc, inArray } from 'drizzle-orm';
+import { createClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/server';
+
+// Type definitions
 export interface User {
   id: string;
   fullName: string;
   email: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 }
 
 export interface Message {
@@ -14,153 +25,130 @@ export interface Message {
   senderId: string;
   content: string;
   isRead: boolean;
-  createdAt: string;
+  createdAt: Date;
+  updatedAt: Date | null;
   attachments?: {
     id: string;
     fileUrl: string;
     fileName: string;
-    fileSize: string;
+    fileSize: number;
     fileType: string;
   }[];
 }
 
 export interface Conversation {
   id: string;
-  title?: string;
-  participantIds: string[];
-  participants: User[];
-  lastMessageId?: string;
-  lastMessage?: Message;
-  unreadCount: number;
-  createdAt: string;
-  updatedAt: string;
+  title?: string | null;
+  participantIds: string[] | any;
+  participants?: User[];
+  lastMessageId?: string | null;
+  lastMessage?: Message | null;
+  unreadCount?: number;
+  createdAt: Date;
+  updatedAt: Date | null;
 }
 
 // Export types for use in other files
-export type ConversationWithParticipants = Conversation;
-export type MessageWithAttachments = Message;
+export type ConversationWithParticipants = Conversation & {
+  participants: User[];
+  lastMessage?: Message | null;
+  unreadCount: number;
+};
 
-// Mock data
-const mockUsers: User[] = [
-  {
-    id: 'user1',
-    fullName: 'John Doe',
-    email: 'john@example.com',
-    avatarUrl: '/avatars/john.jpg'
-  },
-  {
-    id: 'user2',
-    fullName: 'Jane Smith',
-    email: 'jane@example.com',
-    avatarUrl: '/avatars/jane.jpg'
-  },
-  {
-    id: 'seller1',
-    fullName: 'Artisan Workshop',
-    email: 'artisan@example.com',
-    avatarUrl: '/avatars/artisan.jpg'
-  }
-];
-
-const mockMessages: Message[] = [
-  {
-    id: 'msg1',
-    conversationId: 'conv1',
-    senderId: 'user1',
-    content: 'Hello! I\'m interested in your handcrafted wooden table.',
-    isRead: true,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: 'msg2',
-    conversationId: 'conv1',
-    senderId: 'seller1',
-    content: 'Thank you for your interest! What size are you looking for?',
-    isRead: true,
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: 'msg3',
-    conversationId: 'conv1',
-    senderId: 'user1',
-    content: 'I need a dining table that seats 6 people.',
-    isRead: true,
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: 'msg4',
-    conversationId: 'conv1',
-    senderId: 'seller1',
-    content: 'Perfect! I have several options available. Would you like to see some designs?',
-    isRead: false,
-    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    attachments: [
-      {
-        id: 'att1',
-        fileName: 'table-designs.pdf',
-        fileUrl: '/attachments/table-designs.pdf',
-        fileSize: '2500000',
-        fileType: 'application/pdf'
-      }
-    ]
-  },
-  {
-    id: 'msg5',
-    conversationId: 'conv2',
-    senderId: 'user1',
-    content: 'Do you make custom vases?',
-    isRead: true,
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: 'msg6',
-    conversationId: 'conv2',
-    senderId: 'user2',
-    content: 'Yes! I specialize in custom ceramic pieces. What did you have in mind?',
-    isRead: true,
-    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
-  }
-];
-
-const mockConversations: Conversation[] = [
-  {
-    id: 'conv1',
-    participantIds: ['user1', 'seller1'],
-    participants: [mockUsers[0], mockUsers[2]],
-    lastMessageId: 'msg4',
-    lastMessage: mockMessages[3],
-    unreadCount: 1,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: 'conv2',
-    participantIds: ['user1', 'user2'],
-    participants: [mockUsers[0], mockUsers[1]],
-    lastMessageId: 'msg6',
-    lastMessage: mockMessages[5],
-    unreadCount: 0,
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
-  }
-];
+export type MessageWithAttachments = Message & {
+  attachments: {
+    id: string;
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    fileType: string;
+  }[];
+};
 
 /**
  * Get all conversations for the current user
  */
 export async function getUserConversations() {
   try {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.user) {
+    const currentUser = await getUser();
+    if (!currentUser) {
       return [];
     }
-    
-    const userId = session.user.id;
-    
-    // For mock purposes, just return all conversations
-    return mockConversations;
+
+    // Get the user from our database
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.authId, currentUser.id))
+      .limit(1);
+
+    if (!user) {
+      return [];
+    }
+
+    // Fetch all conversations where the user is a participant
+    const conversationsData = await db
+      .select()
+      .from(conversations)
+      .where(
+        // Using SQL contains operator to check JSON array
+        sql`${conversations.participantIds} ? ${user.id}::text`
+      )
+      .orderBy(desc(conversations.updatedAt));
+
+    // Get participant info and last message for each conversation
+    const conversationsWithDetails = await Promise.all(
+      conversationsData.map(async (conversation) => {
+        // Get participants
+        const participantUsers = await db
+          .select({
+            id: users.id,
+            fullName: users.fullName,
+            email: users.email,
+            avatarUrl: users.avatarUrl
+          })
+          .from(users)
+          .where(inArray(users.id, conversation.participantIds as string[]));
+
+        // Get last message if available
+        let lastMessage = null;
+        if (conversation.lastMessageId) {
+          const [message] = await db
+            .select()
+            .from(messages)
+            .where(eq(messages.id, conversation.lastMessageId))
+            .limit(1);
+          
+          if (message) {
+            lastMessage = message;
+          }
+        }
+
+        // Count unread messages
+        const [{ count: unreadCount }] = await db
+          .select({ 
+            count: db.fn.count() 
+          })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.conversationId, conversation.id),
+              eq(messages.isRead, false),
+              eq(messages.senderId, user.id)
+            )
+          )
+          .limit(1) as [{ count: number }];
+
+        return {
+          ...conversation,
+          participants: participantUsers,
+          lastMessage,
+          unreadCount: Number(unreadCount)
+        };
+      })
+    );
+
+    return conversationsWithDetails;
   } catch (error) {
     console.error('Error fetching user conversations:', error);
     return [];
@@ -170,18 +158,96 @@ export async function getUserConversations() {
 /**
  * Get a single conversation by ID
  */
-export async function getConversation(conversationId: string) {
+export async function getConversation(conversationId: string): Promise<ConversationWithParticipants | null> {
   try {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.user) {
+    const currentUser = await getUser();
+    if (!currentUser) {
       return null;
     }
-    
-    // For mock purposes, find the conversation in our mock data
-    const conversation = mockConversations.find(c => c.id === conversationId);
-    return conversation || null;
+
+    // Get the user from our database
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.authId, currentUser.id))
+      .limit(1);
+
+    if (!user) {
+      return null;
+    }
+
+    // Fetch the conversation
+    const [conversation] = await db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          // Using SQL contains operator to check JSON array
+          sql`${conversations.participantIds} ? ${user.id}::text`
+        )
+      )
+      .limit(1);
+
+    if (!conversation) {
+      return null;
+    }
+
+    // Get participants
+    const participants = await db
+      .select({
+        id: users.id,
+        fullName: users.fullName,
+        email: users.email,
+        avatarUrl: users.avatarUrl
+      })
+      .from(users)
+      .where(inArray(users.id, conversation.participantIds as string[]));
+
+    // Get last message if available
+    let lastMessage = null;
+    if (conversation.lastMessageId) {
+      const [message] = await db
+        .select()
+        .from(messages)
+        .where(eq(messages.id, conversation.lastMessageId))
+        .limit(1);
+      
+      if (message) {
+        // Get attachments for last message
+        const messageAttachments = await db
+          .select()
+          .from(attachments)
+          .where(eq(attachments.messageId, message.id));
+
+        lastMessage = {
+          ...message,
+          attachments: messageAttachments
+        };
+      }
+    }
+
+    // Count unread messages
+    const [{ count: unreadCount }] = await db
+      .select({ 
+        count: db.fn.count() 
+      })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.conversationId, conversation.id),
+          eq(messages.isRead, false),
+          eq(messages.senderId, user.id)
+        )
+      )
+      .limit(1) as [{ count: number }];
+
+    return {
+      ...conversation,
+      participants,
+      lastMessage,
+      unreadCount: Number(unreadCount)
+    };
   } catch (error) {
     console.error('Error fetching conversation:', error);
     return null;
@@ -191,17 +257,76 @@ export async function getConversation(conversationId: string) {
 /**
  * Get all messages for a conversation
  */
-export async function getConversationMessages(conversationId: string) {
+export async function getConversationMessages(conversationId: string): Promise<MessageWithAttachments[]> {
   try {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.user) {
+    const currentUser = await getUser();
+    if (!currentUser) {
       return [];
     }
-    
-    // For mock purposes, filter messages by conversation ID
-    return mockMessages.filter(m => m.conversationId === conversationId);
+
+    // Get the user from our database
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.authId, currentUser.id))
+      .limit(1);
+
+    if (!user) {
+      return [];
+    }
+
+    // Check user has access to this conversation
+    const [conversation] = await db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          // Using SQL contains operator to check JSON array
+          sql`${conversations.participantIds} ? ${user.id}::text`
+        )
+      )
+      .limit(1);
+
+    if (!conversation) {
+      return [];
+    }
+
+    // Get all messages
+    const messagesData = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(desc(messages.createdAt));
+
+    // Get attachments for each message
+    const messagesWithAttachments = await Promise.all(
+      messagesData.map(async (message) => {
+        const messageAttachments = await db
+          .select()
+          .from(attachments)
+          .where(eq(attachments.messageId, message.id));
+
+        return {
+          ...message,
+          attachments: messageAttachments
+        };
+      })
+    );
+
+    // Mark messages as read if they're from other users
+    await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(messages.conversationId, conversationId),
+          eq(messages.isRead, false),
+          eq(messages.senderId, user.id)
+        )
+      );
+
+    return messagesWithAttachments;
   } catch (error) {
     console.error('Error fetching conversation messages:', error);
     return [];
@@ -211,17 +336,56 @@ export async function getConversationMessages(conversationId: string) {
 /**
  * Get the unread count for all user conversations
  */
-export async function getUnreadMessagesCount() {
+export async function getUnreadMessagesCount(): Promise<number> {
   try {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.user) {
+    const currentUser = await getUser();
+    if (!currentUser) {
       return 0;
     }
-    
-    // For mock purposes, calculate the total unread count from our mock data
-    return mockConversations.reduce((total, conv) => total + conv.unreadCount, 0);
+
+    // Get the user from our database
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.authId, currentUser.id))
+      .limit(1);
+
+    if (!user) {
+      return 0;
+    }
+
+    // Get all conversations for this user
+    const userConversations = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(
+        // Using SQL contains operator to check JSON array
+        sql`${conversations.participantIds} ? ${user.id}::text`
+      );
+
+    if (!userConversations.length) {
+      return 0;
+    }
+
+    // Get count of all unread messages across all conversations
+    const [{ count }] = await db
+      .select({ 
+        count: db.fn.count() 
+      })
+      .from(messages)
+      .where(
+        and(
+          inArray(
+            messages.conversationId, 
+            userConversations.map(c => c.id)
+          ),
+          eq(messages.isRead, false),
+          eq(messages.senderId, user.id)
+        )
+      )
+      .limit(1) as [{ count: number }];
+
+    return Number(count);
   } catch (error) {
     console.error('Error fetching unread count:', error);
     return 0;

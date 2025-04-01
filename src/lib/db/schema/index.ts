@@ -13,6 +13,8 @@ export * from './orders';
 export * from './transactions';
 export * from './messages';
 export * from './reviews';
+export * from './storefronts';
+export * from './customization-options';
 
 // Import relations
 import { users } from './users';
@@ -25,12 +27,14 @@ import { orders, orderItems, shipping, samples, revisions } from './orders';
 import { transactions } from './transactions';
 import { conversations, messages, attachments } from './messages';
 import { reviews } from './reviews';
+import { storefronts, storefrontCustomization } from './storefronts';
+import { customizationOptions, customizationOptionChoices } from './customization-options';
 import { relations } from 'drizzle-orm';
 
 // Define relationships that require circular references
 
 // Users relations
-export const usersRelations = relations(users, ({ one }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   craftsmanProfile: one(craftsmanProfiles, {
     fields: [users.id],
     references: [craftsmanProfiles.userId],
@@ -39,6 +43,7 @@ export const usersRelations = relations(users, ({ one }) => ({
     fields: [users.id],
     references: [builderProfiles.userId],
   }),
+  storefronts: many(storefronts),
 }));
 
 // Categories relations
@@ -74,12 +79,17 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     fields: [products.categoryId],
     references: [categories.id],
   }),
+  storefront: one(storefronts, {
+    fields: [products.storefrontId],
+    references: [storefronts.id],
+  }),
   images: many(productImages),
   attributes: many(productAttributes),
   inventoryItem: one(inventory, {
     fields: [products.id],
     references: [inventory.productId],
   }),
+  customizationOptions: many(customizationOptions),
 }));
 
 // ProductAttributes relations
@@ -232,8 +242,8 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
     fields: [reviews.reviewerId],
     references: [users.id],
   }),
-  reviewee: one(users, {
-    fields: [reviews.revieweeId],
+  recipient: one(users, {
+    fields: [reviews.recipientId],
     references: [users.id],
   }),
   product: one(products, {

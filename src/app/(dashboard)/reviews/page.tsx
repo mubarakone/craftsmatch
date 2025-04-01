@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSession } from "@/lib/supabase/server";
 import { getUserWrittenReviews, getUserReceivedReviews } from "@/lib/reviews/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,18 +11,35 @@ export const metadata: Metadata = {
   description: "Manage your reviews and feedback",
 };
 
+// Add dynamic configuration to prevent static build
+export const dynamic = 'force-dynamic';
+
 export default async function ReviewsPage() {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  // Skip authentication check during build
+  if (process.env.NEXT_BUILD === 'true') {
+    const mockUserId = 'build-time-user-id';
+    const writtenReviews = [];
+    const receivedReviews = [];
+    
+    return renderReviewsPage(mockUserId, writtenReviews, receivedReviews);
+  }
+  
+  // Regular runtime authentication
+  const session = await getSession();
   
   if (!session) {
     redirect("/sign-in");
   }
   
   const currentUserId = session.user.id;
-  const writtenReviews = await getUserWrittenReviews();
-  const receivedReviews = await getUserReceivedReviews();
+  const writtenReviews = await getUserWrittenReviews(currentUserId);
+  const receivedReviews = await getUserReceivedReviews(currentUserId);
   
+  return renderReviewsPage(currentUserId, writtenReviews, receivedReviews);
+}
+
+// Separate rendering function to avoid duplication
+function renderReviewsPage(currentUserId: string, writtenReviews: any[], receivedReviews: any[]) {
   return (
     <div className="container py-6">
       <div className="mb-6">

@@ -6,6 +6,30 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Formats a price with the given currency
+ */
+export function formatPrice(
+  price: number | null | undefined,
+  options: {
+    currency?: string;
+    notation?: Intl.NumberFormatOptions["notation"];
+  } = {}
+): string {
+  if (price === null || price === undefined) {
+    return "";
+  }
+  
+  const { currency = "USD", notation = "standard" } = options;
+  
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    notation,
+    maximumFractionDigits: 2,
+  }).format(price);
+}
+
+/**
  * Formats a currency value according to the specified currency code
  */
 export function formatCurrency(
@@ -91,14 +115,17 @@ export function createSlug(text: string): string {
 }
 
 /**
- * Generate a URL-friendly slug from a string
+ * Generates a URL-friendly slug from a string
  */
 export function generateSlug(text: string): string {
   return text
+    .toString()
     .toLowerCase()
-    .replace(/\s+/g, '-')       // Replace spaces with -
-    .replace(/[^\w\-]+/g, '')   // Remove all non-word chars
-    .replace(/\-\-+/g, '-')     // Replace multiple - with single -
-    .replace(/^-+/, '')         // Trim - from start of text
-    .replace(/-+$/, '');        // Trim - from end of text
+    .trim()
+    .replace(/\s+/g, "-") // Replace spaces with -
+    .replace(/&/g, "-and-") // Replace & with 'and'
+    .replace(/[^\w\-]+/g, "") // Remove all non-word characters
+    .replace(/\-\-+/g, "-") // Replace multiple - with single -
+    .replace(/^-+/, "") // Trim - from start of text
+    .replace(/-+$/, ""); // Trim - from end of text
 }

@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { getUserConversations } from "@/lib/messages/queries";
-import { createClient } from "@/lib/supabase/server";
+import { getSession } from "@/lib/supabase/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,16 +14,29 @@ export const metadata: Metadata = {
   description: "Manage your conversations with sellers and buyers",
 };
 
+// Add dynamic configuration to prevent static build
+export const dynamic = 'force-dynamic';
+
 export default async function MessagesPage() {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  // Skip authentication check during build
+  if (process.env.NEXT_BUILD === 'true') {
+    const mockConversations = [];
+    return renderMessagesPage(mockConversations);
+  }
+  
+  // Regular runtime authentication
+  const session = await getSession();
   
   if (!session) {
     redirect("/sign-in");
   }
   
   const conversations = await getUserConversations();
-  
+  return renderMessagesPage(conversations);
+}
+
+// Separate rendering function to avoid duplication
+function renderMessagesPage(conversations: any[]) {
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">

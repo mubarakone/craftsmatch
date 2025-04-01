@@ -9,6 +9,7 @@ export const products = pgTable('products', {
   slug: text('slug').unique().notNull(),
   description: text('description').notNull(),
   craftmanId: uuid('craftsman_id').notNull().references(() => users.id),
+  storefrontId: uuid('storefront_id'),
   price: doublePrecision('price').notNull(),
   discountPrice: doublePrecision('discount_price'),
   currency: text('currency').default('USD').notNull(),

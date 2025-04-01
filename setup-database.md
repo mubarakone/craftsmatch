@@ -1,6 +1,68 @@
-# Setting Up the Database
+# CraftsMatch Database Setup
 
-This document guides you through setting up the database tables for CraftsMatch in Supabase.
+This file provides instructions for setting up the database schema and loading initial data for the CraftsMatch platform.
+
+## Migration Files
+
+Our database migrations are structured in numbered files to ensure they are executed in the correct order:
+
+1. `001_users_and_profiles.sql` - Creates users table, craftsmen profiles, and builder profiles
+2. `002_storefronts.sql` - Creates storefronts and customization tables
+3. `003_categories_attributes.sql` - Creates categories and attributes tables
+4. `004_products.sql` - Creates products, product images, product attributes, and inventory tables
+5. `005_customization_options.sql` - Creates product customization options tables
+6. `006_orders_transactions.sql` - Creates orders, order items, and transactions tables
+7. `007_messages_reviews.sql` - Creates conversations, messages, attachments, and reviews tables
+
+## Setting Up the Database
+
+### Option 1: Using the migration script
+
+1. **Set your database connection string**
+   ```
+   export DATABASE_URL="postgresql://postgres:your-password@localhost:5432/craftsmatch"
+   ```
+
+2. **Run the migration script**
+   ```
+   cd migrations
+   ./run_migrations.sh
+   ```
+
+### Option 2: Using Supabase SQL Editor
+
+1. **Open the Supabase dashboard** for your project
+2. Navigate to the **SQL Editor** section
+3. Create a new query
+4. Copy and paste the contents of each migration file in order
+5. Run each query in sequence
+
+## Sample Data
+
+Each migration file includes sample mock data for testing purposes. This data includes:
+
+- Users (craftsmen and builders)
+- Storefronts
+- Categories and attributes
+- Products and inventory
+- Customization options
+- Orders and transactions
+- Conversations, messages, and reviews
+
+## Verifying Setup
+
+To confirm the tables were created successfully:
+
+1. Navigate to the **Table Editor** in Supabase
+2. Verify that all tables are present
+3. Check that sample data is correctly loaded
+
+## Development Notes
+
+- All tables use UUID primary keys
+- Row Level Security (RLS) is enabled on all tables
+- The database uses triggers for automatically updating `updated_at` timestamps
+- Foreign key constraints are set up to maintain data integrity
 
 ## Craftsman Profiles Table
 

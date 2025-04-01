@@ -3,7 +3,38 @@ import { CategoryShowcase } from "@/components/marketplace/category-showcase";
 import { Pagination } from "@/components/shared/pagination";
 import { FilterSidebar } from "@/components/shared/filter-sidebar";
 import { SearchBar } from "@/components/shared/search-bar";
-import { getAllCategories, getTopCategories } from "@/lib/marketplace/queries";
+import { StorefrontCard } from "@/components/shared/storefront-card";
+
+// Mock data for build time
+const mockCategories = [
+  { id: "1", name: "Furniture", slug: "furniture", parentId: null, subcategories: [] },
+  { id: "2", name: "Ceramics", slug: "ceramics", parentId: null, subcategories: [] },
+  { id: "3", name: "Textiles", slug: "textiles", parentId: null, subcategories: [] },
+  { id: "4", name: "Woodworking", slug: "woodworking", parentId: null, subcategories: [] },
+  { id: "5", name: "Metalwork", slug: "metalwork", parentId: null, subcategories: [] },
+  { id: "6", name: "Glass", slug: "glass", parentId: null, subcategories: [] }
+];
+
+const mockStorefronts = [
+  { 
+    id: "1", 
+    name: "Oak & Pine Workshop", 
+    description: "Custom wooden furniture and decor items", 
+    slug: "oak-pine-workshop",
+    bannerUrl: null,
+    logoUrl: null,
+    location: "Portland, OR"
+  },
+  { 
+    id: "2", 
+    name: "Ceramic Creations", 
+    description: "Handcrafted pottery and ceramic art", 
+    slug: "ceramic-creations",
+    bannerUrl: null,
+    logoUrl: null,
+    location: "Austin, TX"
+  }
+];
 
 interface MarketplacePageProps {
   searchParams: {
@@ -17,12 +48,35 @@ interface MarketplacePageProps {
   };
 }
 
+// Add dynamic configuration to prevent static build
+export const dynamic = 'force-dynamic';
+
 export default async function MarketplacePage({
   searchParams,
 }: MarketplacePageProps) {
-  // Fetch categories data
-  const categories = await getAllCategories();
-  const topCategories = await getTopCategories();
+  // Use mock data during build
+  let categories = mockCategories;
+  let topCategories = mockCategories.slice(0, 3);
+  let featuredStorefronts = mockStorefronts;
+  
+  // Only fetch real data at runtime
+  if (process.env.NEXT_BUILD !== 'true') {
+    try {
+      // Dynamic imports to avoid build-time issues
+      const { getAllCategories, getTopCategories } = await import("@/lib/marketplace/queries");
+      const { getFeaturedStorefronts } = await import("@/lib/storefront/queries");
+      
+      // Fetch categories data
+      categories = await getAllCategories();
+      topCategories = await getTopCategories();
+      
+      // Fetch featured storefronts
+      featuredStorefronts = await getFeaturedStorefronts(6);
+    } catch (error) {
+      console.error("Error fetching marketplace data:", error);
+      // Use mock data if fetch fails
+    }
+  }
   
   // Parse search parameters
   const query = searchParams?.query || "";
@@ -61,6 +115,20 @@ export default async function MarketplacePage({
           <Suspense fallback={<div>Loading categories...</div>}>
             <CategoryShowcase categories={topCategories} />
           </Suspense>
+          
+          {/* Featured Storefronts */}
+          <div className="mt-12 mb-12">
+            <h2 className="text-2xl font-semibold mb-6">Featured Storefronts</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {featuredStorefronts.map((storefront) => (
+                <StorefrontCard 
+                  key={storefront.id} 
+                  storefront={storefront}
+                  imageSize="medium"
+                />
+              ))}
+            </div>
+          </div>
           
           <div className="mt-8">
             <div className="flex justify-between items-center mb-4">

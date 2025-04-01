@@ -1,13 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['placehold.co', 'res.cloudinary.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
-  // Add webpack configuration to handle Node.js modules
+  
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Don't resolve these modules on the client to avoid errors
+      // Add polyfills for node modules
       config.resolve.fallback = {
+        ...config.resolve.fallback,
         fs: false,
         net: false,
         tls: false,
@@ -23,19 +29,19 @@ const nextConfig = {
         perf_hooks: false,
       };
     }
+    
     return config;
   },
-  // Disable TypeScript and ESLint checks during production build
+  
+  // Disable TypeScript checks during build
   typescript: {
     ignoreBuildErrors: true,
   },
+  
+  // Disable ESLint during build
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Improve error handling for production
-  productionBrowserSourceMaps: true,
-  // Modify React strict mode for compatibility
-  reactStrictMode: false,
 };
 
 module.exports = nextConfig;
