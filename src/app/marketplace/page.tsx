@@ -4,8 +4,11 @@ import { Pagination } from "@/components/shared/pagination";
 import { FilterSidebar } from "@/components/shared/filter-sidebar";
 import { SearchBar } from "@/components/shared/search-bar";
 import { StorefrontCard } from "@/components/shared/storefront-card";
+import { fetchWithFallback } from "@/lib/db";
+import { getAllCategories, getTopCategories } from "@/lib/marketplace/queries";
+import { getFeaturedStorefronts } from "@/lib/storefront/queries";
 
-// Mock data for build time
+// Mock data for fallback
 const mockCategories = [
   { id: "1", name: "Furniture", slug: "furniture", parentId: null, subcategories: [] },
   { id: "2", name: "Ceramics", slug: "ceramics", parentId: null, subcategories: [] },
@@ -54,29 +57,21 @@ export const dynamic = 'force-dynamic';
 export default async function MarketplacePage({
   searchParams,
 }: MarketplacePageProps) {
-  // Use mock data during build
-  let categories = mockCategories;
-  let topCategories = mockCategories.slice(0, 3);
-  let featuredStorefronts = mockStorefronts;
+  // Fetch data with fallbacks for build time or errors
+  const categories = await fetchWithFallback(
+    () => getAllCategories(),
+    mockCategories
+  );
   
-  // Only fetch real data at runtime
-  if (process.env.NEXT_BUILD !== 'true') {
-    try {
-      // Dynamic imports to avoid build-time issues
-      const { getAllCategories, getTopCategories } = await import("@/lib/marketplace/queries");
-      const { getFeaturedStorefronts } = await import("@/lib/storefront/queries");
-      
-      // Fetch categories data
-      categories = await getAllCategories();
-      topCategories = await getTopCategories();
-      
-      // Fetch featured storefronts
-      featuredStorefronts = await getFeaturedStorefronts(6);
-    } catch (error) {
-      console.error("Error fetching marketplace data:", error);
-      // Use mock data if fetch fails
-    }
-  }
+  const topCategories = await fetchWithFallback(
+    () => getTopCategories(),
+    mockCategories.slice(0, 3)
+  );
+  
+  const featuredStorefronts = await fetchWithFallback(
+    () => getFeaturedStorefronts(6),
+    mockStorefronts
+  );
   
   // Parse search parameters
   const query = searchParams?.query || "";

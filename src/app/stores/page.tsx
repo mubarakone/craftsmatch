@@ -1,9 +1,13 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StorefrontCard } from "@/components/shared/storefront-card";
 import { Store } from "lucide-react";
+import { fetchWithFallback } from "@/lib/db";
+import { getFeaturedStorefronts } from "@/lib/storefront/queries";
+import { Suspense } from "react";
 
-// Mock data for build time
+// Mock data for fallback
 const mockStorefronts = [
   { 
     id: "1", 
@@ -42,22 +46,35 @@ export const metadata = {
 // Add dynamic configuration to prevent static build
 export const dynamic = 'force-dynamic';
 
+// Loading component for storefronts
+function StorefrontSkeleton() {
+  return (
+    <div className="border rounded-md p-4 w-full">
+      <div className="h-48 bg-gray-200 rounded-md mb-4 animate-pulse"></div>
+      <div className="h-6 bg-gray-200 rounded w-3/4 mb-2 animate-pulse"></div>
+      <div className="h-4 bg-gray-200 rounded w-1/2 mb-4 animate-pulse"></div>
+      <div className="h-10 bg-gray-200 rounded w-full animate-pulse"></div>
+    </div>
+  );
+}
+
+// Loading state for the storefronts grid
+function StorefrontsLoading() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <StorefrontSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
 export default async function StorefrontsDirectoryPage() {
-  // Use mock data during build
-  let storefronts = mockStorefronts;
-  
-  // Only fetch real data at runtime
-  if (process.env.NEXT_BUILD !== 'true') {
-    try {
-      // Dynamic import to avoid build-time issues
-      const { getFeaturedStorefronts } = await import("@/lib/storefront/queries");
-      // Get all storefronts (for now we'll use the featured endpoint with a high limit)
-      storefronts = await getFeaturedStorefronts(24);
-    } catch (error) {
-      console.error("Error fetching storefronts:", error);
-      // Use mock data if fetch fails
-    }
-  }
+  // Fetch storefronts with fallback for build time or errors
+  const storefronts = await fetchWithFallback(
+    () => getFeaturedStorefronts(24),
+    mockStorefronts
+  );
   
   return (
     <div className="container py-10">
@@ -78,30 +95,32 @@ export default async function StorefrontsDirectoryPage() {
         </div>
       </div>
 
-      {storefronts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {storefronts.map((storefront) => (
-            <StorefrontCard
-              key={storefront.id}
-              storefront={storefront}
-              imageSize="medium"
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-20 border rounded-lg bg-slate-50">
-          <h3 className="text-lg font-medium mb-2">No storefronts available yet</h3>
-          <p className="text-muted-foreground mb-6">
-            Check back soon as craftsmen set up their online stores.
-          </p>
-          <Button asChild>
-            <Link href="/storefront/setup">
-              <Store className="mr-2 h-4 w-4" />
-              Create Your Own Storefront
-            </Link>
-          </Button>
-        </div>
-      )}
+      <Suspense fallback={<StorefrontsLoading />}>
+        {storefronts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {storefronts.map((storefront) => (
+              <StorefrontCard
+                key={storefront.id}
+                storefront={storefront}
+                imageSize="medium"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 border rounded-lg bg-slate-50">
+            <h3 className="text-lg font-medium mb-2">No storefronts available yet</h3>
+            <p className="text-muted-foreground mb-6">
+              Check back soon as craftsmen set up their online stores.
+            </p>
+            <Button asChild>
+              <Link href="/storefront/setup">
+                <Store className="mr-2 h-4 w-4" />
+                Create Your Own Storefront
+              </Link>
+            </Button>
+          </div>
+        )}
+      </Suspense>
 
       {storefronts.length > 0 && (
         <div className="mt-16 text-center">

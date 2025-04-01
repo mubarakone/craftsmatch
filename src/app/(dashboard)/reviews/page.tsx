@@ -5,6 +5,8 @@ import { getUserWrittenReviews, getUserReceivedReviews } from "@/lib/reviews/que
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ReviewList from "@/components/reviews/review-list";
+import { fetchWithFallback } from "@/lib/db";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Reviews | CraftsMatch",
@@ -14,14 +16,32 @@ export const metadata: Metadata = {
 // Add dynamic configuration to prevent static build
 export const dynamic = 'force-dynamic';
 
+// Loading state component for reviews
+function ReviewsLoading() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="border rounded-md p-4">
+          <div className="flex items-center mb-4">
+            <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse mr-3"></div>
+            <div>
+              <div className="h-4 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-24 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="h-4 bg-gray-200 rounded w-full mb-2 animate-pulse"></div>
+          <div className="h-4 bg-gray-200 rounded w-5/6 mb-2 animate-pulse"></div>
+          <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default async function ReviewsPage() {
   // Skip authentication check during build
   if (process.env.NEXT_BUILD === 'true') {
-    const mockUserId = 'build-time-user-id';
-    const writtenReviews = [];
-    const receivedReviews = [];
-    
-    return renderReviewsPage(mockUserId, writtenReviews, receivedReviews);
+    return renderReviewsPage('build-time-user-id', [], []);
   }
   
   // Regular runtime authentication
@@ -32,8 +52,17 @@ export default async function ReviewsPage() {
   }
   
   const currentUserId = session.user.id;
-  const writtenReviews = await getUserWrittenReviews(currentUserId);
-  const receivedReviews = await getUserReceivedReviews(currentUserId);
+  
+  // Fetch reviews with fallback for errors
+  const writtenReviews = await fetchWithFallback(
+    () => getUserWrittenReviews(currentUserId),
+    []
+  );
+  
+  const receivedReviews = await fetchWithFallback(
+    () => getUserReceivedReviews(currentUserId),
+    []
+  );
   
   return renderReviewsPage(currentUserId, writtenReviews, receivedReviews);
 }
@@ -64,12 +93,14 @@ function renderReviewsPage(currentUserId: string, writtenReviews: any[], receive
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ReviewList 
-                reviews={receivedReviews} 
-                currentUserId={currentUserId}
-                canRespond={true}
-                showProductInfo={true}
-              />
+              <Suspense fallback={<ReviewsLoading />}>
+                <ReviewList 
+                  reviews={receivedReviews} 
+                  currentUserId={currentUserId}
+                  canRespond={true}
+                  showProductInfo={true}
+                />
+              </Suspense>
             </CardContent>
           </Card>
         </TabsContent>
@@ -83,11 +114,13 @@ function renderReviewsPage(currentUserId: string, writtenReviews: any[], receive
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ReviewList 
-                reviews={writtenReviews} 
-                currentUserId={currentUserId}
-                showProductInfo={true}
-              />
+              <Suspense fallback={<ReviewsLoading />}>
+                <ReviewList 
+                  reviews={writtenReviews} 
+                  currentUserId={currentUserId}
+                  showProductInfo={true}
+                />
+              </Suspense>
             </CardContent>
           </Card>
         </TabsContent>

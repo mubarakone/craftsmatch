@@ -1,51 +1,109 @@
 // Check if we're in a build environment
 const isBuild = process.env.NEXT_BUILD === 'true';
+// Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
 
-// Only import schema if not in build mode
-import * as schema from './schema';
+// Define a simple interface for our mock database
+interface MockDatabase {
+  select: (...args: any[]) => any;
+  insert: (...args: any[]) => any;
+  update: (...args: any[]) => any;
+  delete: (...args: any[]) => any;
+  transaction: (...args: any[]) => any;
+}
 
-// Simple mock database interface for build time
-const mockDb = {
-  select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }),
-  insert: () => ({ values: () => ({ returning: () => Promise.resolve([]) }) }),
-  update: () => ({ set: () => ({ where: () => Promise.resolve([]) }) }),
-  delete: () => ({ where: () => Promise.resolve([]) }),
-  transaction: async (fn) => fn(mockDb),
-  query: { schema }
+// Define a mock database for build time
+const mockDb: MockDatabase = {
+  select: () => {
+    const queryBuilder = {
+      from: (table: string) => ({
+        where: () => ({
+          limit: () => Promise.resolve([]),
+          orderBy: () => Promise.resolve([]),
+          eq: () => Promise.resolve([]),
+        }),
+        limit: () => Promise.resolve([]),
+        orderBy: () => Promise.resolve([]),
+      }),
+      where: function() { return queryBuilder; },
+      limit: function() { return Promise.resolve([]); },
+      orderBy: function() { return Promise.resolve([]); },
+      eq: function() { return Promise.resolve([]); },
+    };
+    return queryBuilder;
+  },
+  insert: () => ({
+    values: () => ({
+      returning: () => Promise.resolve([])
+    }),
+    into: () => ({
+      values: () => ({
+        returning: () => Promise.resolve([])
+      })
+    })
+  }),
+  update: () => ({
+    set: () => ({
+      where: () => ({
+        returning: () => Promise.resolve([])
+      })
+    })
+  }),
+  delete: () => ({
+    where: () => ({
+      returning: () => Promise.resolve([])
+    })
+  }),
+  transaction: (fn: () => Promise<any>) => Promise.resolve(fn())
 };
 
-// Use dynamic imports to avoid node: prefixed imports during build
+// Export either the real database or the mock database
 let db = mockDb;
 
-// Only attempt to initialize the real database when not in build mode and not in browser
+// If we're not in a build environment and not in the browser, initialize the real database
 if (!isBuild && !isBrowser) {
   try {
-    // Dynamic import of database libraries
-    // This code will be excluded during build time
+    // We need to use dynamic imports to avoid Node.js prefixed imports during build
     const { drizzle } = require('drizzle-orm/postgres-js');
     const postgres = require('postgres');
     
-    // Get database URL from environment
-    const url = process.env.DATABASE_URL || process.env.NEXT_PUBLIC_DATABASE_URL;
+    // Import the schema only if not in build mode
+    const { schema } = require('./schema');
     
-    if (url) {
-      // Create Postgres client
-      const client = postgres(url);
-      
-      // Initialize Drizzle with schema
-      db = drizzle(client, { schema });
-      
-      // Log successful connection
-      console.log('Database connection initialized successfully');
-    } else {
-      console.warn('DATABASE_URL is not defined, using mock database');
-    }
+    // Initialize the database connection
+    const connectionString = process.env.DATABASE_URL || '';
+    const client = postgres(connectionString);
+    db = drizzle(client, { schema });
+    
+    console.log('Real database initialized');
   } catch (error) {
-    console.error('Failed to initialize database:', error);
+    console.error('Error initializing database:', error);
+    // Fall back to mock database
   }
 }
 
-// Export the database (either real or mock)
+/**
+ * Fetch data from the database with a loading fallback
+ * @param fetchFn - The function that performs the actual database query
+ * @param fallbackData - The data to return if in build mode or if the fetch fails
+ */
+export async function fetchWithFallback<T>(
+  fetchFn: () => Promise<T>, 
+  fallbackData: T
+): Promise<T> {
+  // During build time, return fallback data immediately
+  if (isBuild) {
+    return fallbackData;
+  }
+  
+  try {
+    // At runtime, actually fetch the real data
+    return await fetchFn();
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    // If the fetch fails, return the fallback data
+    return fallbackData;
+  }
+}
+
 export { db };
-export type DbClient = typeof db;
