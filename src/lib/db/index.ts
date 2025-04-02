@@ -1,108 +1,108 @@
-// Check if we're in a build environment
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import postgres from 'postgres';
+
+// Import schema
+import * as schema from './schema';
+
+// Environment detection
 const isBuild = process.env.NEXT_BUILD === 'true';
-// Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
 
-// Define a simple interface for our mock database
-interface MockDatabase {
-  select: (...args: any[]) => any;
-  insert: (...args: any[]) => any;
-  update: (...args: any[]) => any;
-  delete: (...args: any[]) => any;
-  transaction: (...args: any[]) => any;
-}
+// Database URL from environment
+const DATABASE_URL = process.env.DATABASE_URL;
 
-// Define a mock database for build time
-const mockDb: MockDatabase = {
-  select: () => {
-    const queryBuilder = {
-      from: (table: string) => ({
-        where: () => ({
-          limit: () => Promise.resolve([]),
-          orderBy: () => Promise.resolve([]),
-          eq: () => Promise.resolve([]),
-        }),
-        limit: () => Promise.resolve([]),
-        orderBy: () => Promise.resolve([]),
-      }),
-      where: function() { return queryBuilder; },
-      limit: function() { return Promise.resolve([]); },
-      orderBy: function() { return Promise.resolve([]); },
-      eq: function() { return Promise.resolve([]); },
-    };
-    return queryBuilder;
-  },
-  insert: () => ({
-    values: () => ({
-      returning: () => Promise.resolve([])
-    }),
-    into: () => ({
-      values: () => ({
-        returning: () => Promise.resolve([])
-      })
-    })
-  }),
-  update: () => ({
-    set: () => ({
-      where: () => ({
-        returning: () => Promise.resolve([])
-      })
-    })
-  }),
-  delete: () => ({
-    where: () => ({
-      returning: () => Promise.resolve([])
-    })
-  }),
-  transaction: (fn: () => Promise<any>) => Promise.resolve(fn())
-};
+// Initialize database client with error handling
+let db: ReturnType<typeof drizzle> | null = null;
 
-// Export either the real database or the mock database
-let db = mockDb;
-
-// If we're not in a build environment and not in the browser, initialize the real database
-if (!isBuild && !isBrowser) {
+// Only initialize the database if not in build mode and not running in browser
+if (!isBuild && !isBrowser && DATABASE_URL) {
   try {
-    // We need to use dynamic imports to avoid Node.js prefixed imports during build
-    const { drizzle } = require('drizzle-orm/postgres-js');
-    const postgres = require('postgres');
-    
-    // Import the schema only if not in build mode
-    const { schema } = require('./schema');
-    
-    // Initialize the database connection
-    const connectionString = process.env.DATABASE_URL || '';
-    const client = postgres(connectionString);
+    // Setup PostgreSQL client
+    const client = postgres(DATABASE_URL, { max: 1 });
     db = drizzle(client, { schema });
     
-    console.log('Real database initialized');
+    console.log('Database connection initialized');
   } catch (error) {
-    console.error('Error initializing database:', error);
-    // Fall back to mock database
+    console.error('Failed to initialize database connection:', error);
+    
+    // Create a mock database for fallback
+    db = createMockDatabase();
   }
+} else {
+  console.log(`Using mock database (${isBuild ? 'build mode' : 'browser environment'})`);
+  db = createMockDatabase();
+}
+
+// Mock database interface for build time or when real connection fails
+function createMockDatabase() {
+  // Return a minimal implementation that won't break code during build
+  return {
+    select: () => ({
+      from: () => ({
+        where: () => Promise.resolve([]),
+        limit: () => Promise.resolve([]),
+        orderBy: () => Promise.resolve([]),
+        get: () => Promise.resolve(null),
+        all: () => Promise.resolve([]),
+      }),
+    }),
+    insert: () => ({
+      values: () => ({
+        returning: () => Promise.resolve([]),
+      }),
+    }),
+    update: () => ({
+      set: () => ({
+        where: () => ({
+          returning: () => Promise.resolve([]),
+        }),
+      }),
+    }),
+    delete: () => ({
+      where: () => ({
+        returning: () => Promise.resolve([]),
+      }),
+    }),
+    transaction: async (fn: Function) => await fn({}),
+    execute: async () => [],
+    query: {
+      categories: {
+        findMany: async () => []
+      },
+      products: {
+        findMany: async () => []
+      },
+      storefronts: {
+        findMany: async () => []
+      },
+      users: {
+        findMany: async () => []
+      }
+    }
+  };
 }
 
 /**
- * Fetch data from the database with a loading fallback
- * @param fetchFn - The function that performs the actual database query
- * @param fallbackData - The data to return if in build mode or if the fetch fails
+ * Helper function to execute a raw SQL query directly
+ * Useful for complex queries not easily expressed with Drizzle
  */
-export async function fetchWithFallback<T>(
-  fetchFn: () => Promise<T>, 
-  fallbackData: T
-): Promise<T> {
-  // During build time, return fallback data immediately
-  if (isBuild) {
-    return fallbackData;
+export async function executeRawQuery<T = any>(
+  sql: string, 
+  params: any[] = []
+): Promise<T[]> {
+  if (!DATABASE_URL || isBuild || isBrowser) {
+    console.warn('Raw query execution skipped in build/browser environment');
+    return [];
   }
   
   try {
-    // At runtime, actually fetch the real data
-    return await fetchFn();
+    const client = postgres(DATABASE_URL, { max: 1 });
+    const result = await client.unsafe(sql, params);
+    return result as T[];
   } catch (error) {
-    console.error('Error fetching data:', error);
-    // If the fetch fails, return the fallback data
-    return fallbackData;
+    console.error('Error executing raw query:', error);
+    throw error;
   }
 }
 

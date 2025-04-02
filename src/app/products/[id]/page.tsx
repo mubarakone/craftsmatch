@@ -11,7 +11,11 @@ import { Separator } from "@/components/ui/separator";
 import { getProductDetail, getRelatedProducts } from "@/lib/products/detail-queries";
 import { ProductCard } from "@/components/product-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { createClient } from "@/lib/supabase/server";
+import { getSession } from "@/lib/auth/session";
+import { db, executeRawQuery } from "@/lib/db";
+
+// Make this page dynamic to avoid static build issues
+export const dynamic = 'force-dynamic';
 
 interface ProductDetailPageProps {
   params: {
@@ -50,23 +54,83 @@ interface Product {
   }>;
 }
 
+// Separate component to handle the session
+async function ProductActions({ isBuilder, session }: { isBuilder: boolean, session: any }) {
+  return (
+    <div className="space-y-4">
+      {isBuilder ? (
+        <Button className="w-full">Add to Cart</Button>
+      ) : session ? (
+        <Button className="w-full" disabled>Builders Only</Button>
+      ) : (
+        <Link href="/sign-in" className="w-full">
+          <Button className="w-full">
+            <LogIn className="h-4 w-4 mr-2" />
+            Sign in to Purchase
+          </Button>
+        </Link>
+      )}
+      <div className="flex space-x-2">
+        <Button variant="outline" className="flex-1">
+          <Heart className="h-4 w-4 mr-2" />
+          Save
+        </Button>
+        <Button variant="outline" className="flex-1">
+          <Share2 className="h-4 w-4 mr-2" />
+          Share
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Separate component to handle the craftsman contact button
+async function CraftsmanContact({ session, craftsmanId }: { session: any, craftsmanId: string }) {
+  return session ? (
+    <Button variant="outline" size="sm" className="ml-auto">
+      Contact
+    </Button>
+  ) : (
+    <Link href="/sign-in" className="ml-auto">
+      <Button variant="outline" size="sm">
+        Sign in to Contact
+      </Button>
+    </Link>
+  );
+}
+
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   const product = await getProductDetail(params.id) as Product | null;
-
-  // Create supabase client to check auth status
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  
+  // Get session using our auth/session helper
+  const session = await getSession();
   
   // Get user role if authenticated
   let userRole = null;
-  if (session) {
-    const { data: userData } = await supabase
-      .from("users")
-      .select("user_role")
-      .eq("auth_id", session.user.id)
-      .single();
-    
-    userRole = userData?.user_role;
+  if (session?.user?.id) {
+    try {
+      // Try to get user role from database
+      if (db) {
+        const user = await db.query.users.findFirst({
+          where: (users, { eq }) => eq(users.id, session.user.id),
+          columns: {
+            role: true
+          }
+        });
+        userRole = user?.role;
+      } else if (typeof executeRawQuery === 'function') {
+        // Fallback to raw SQL
+        const results = await executeRawQuery(
+          'SELECT role FROM users WHERE id = $1 LIMIT 1',
+          [session.user.id]
+        );
+        if (results && results.length > 0) {
+          userRole = results[0].role;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
   }
   
   const isBuilder = userRole === 'builder';
@@ -196,49 +260,30 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 <AvatarFallback>{getInitials(mockProduct.craftsman.businessName)}</AvatarFallback>
               </Avatar>
               <div className="ml-3">
-                <Link href={`/artisans/${mockProduct.craftsman.id}`} className="text-sm font-medium hover:underline">
+                <Link href={`/craftsmen/${mockProduct.craftsman.id}`} className="text-sm font-medium hover:underline">
                   {mockProduct.craftsman.businessName || "Craftsman"}
                 </Link>
                 <p className="text-xs text-gray-500">Artisan</p>
               </div>
-              {session ? (
-                <Button variant="outline" size="sm" className="ml-auto">
-                  Contact
-                </Button>
-              ) : (
-                <Link href="/sign-in" className="ml-auto">
-                  <Button variant="outline" size="sm">
-                    Sign in to Contact
-                  </Button>
-                </Link>
-              )}
+              {/* Use a client component for the contact button */}
+              <Suspense fallback={<Button variant="outline" size="sm" className="ml-auto">Contact</Button>}>
+                <CraftsmanContact
+                  session={session}
+                  craftsmanId={mockProduct.craftsman.id}
+                />
+              </Suspense>
             </div>
           )}
 
-          <div className="space-y-4">
-            {isBuilder ? (
-              <Button className="w-full">Add to Cart</Button>
-            ) : session ? (
-              <Button className="w-full" disabled>Builders Only</Button>
-            ) : (
-              <Link href="/sign-in" className="w-full">
-                <Button className="w-full">
-                  <LogIn className="h-4 w-4 mr-2" />
-                  Sign in to Purchase
-                </Button>
-              </Link>
-            )}
+          <Suspense fallback={<div className="space-y-4">
+            <Button className="w-full">Add to Cart</Button>
             <div className="flex space-x-2">
-              <Button variant="outline" className="flex-1">
-                <Heart className="h-4 w-4 mr-2" />
-                Save
-              </Button>
-              <Button variant="outline" className="flex-1">
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
+              <Button variant="outline" className="flex-1">Save</Button>
+              <Button variant="outline" className="flex-1">Share</Button>
             </div>
-          </div>
+          </div>}>
+            <ProductActions isBuilder={isBuilder} session={session} />
+          </Suspense>
 
           {/* Product Attributes */}
           {mockProduct.attributes && mockProduct.attributes.length > 0 && (

@@ -4,40 +4,11 @@ import { Pagination } from "@/components/shared/pagination";
 import { FilterSidebar } from "@/components/shared/filter-sidebar";
 import { SearchBar } from "@/components/shared/search-bar";
 import { StorefrontCard } from "@/components/shared/storefront-card";
-import { fetchWithFallback } from "@/lib/db";
 import { getAllCategories, getTopCategories } from "@/lib/marketplace/queries";
 import { getFeaturedStorefronts } from "@/lib/storefront/queries";
 
-// Mock data for fallback
-const mockCategories = [
-  { id: "1", name: "Furniture", slug: "furniture", parentId: null, subcategories: [] },
-  { id: "2", name: "Ceramics", slug: "ceramics", parentId: null, subcategories: [] },
-  { id: "3", name: "Textiles", slug: "textiles", parentId: null, subcategories: [] },
-  { id: "4", name: "Woodworking", slug: "woodworking", parentId: null, subcategories: [] },
-  { id: "5", name: "Metalwork", slug: "metalwork", parentId: null, subcategories: [] },
-  { id: "6", name: "Glass", slug: "glass", parentId: null, subcategories: [] }
-];
-
-const mockStorefronts = [
-  { 
-    id: "1", 
-    name: "Oak & Pine Workshop", 
-    description: "Custom wooden furniture and decor items", 
-    slug: "oak-pine-workshop",
-    bannerUrl: null,
-    logoUrl: null,
-    location: "Portland, OR"
-  },
-  { 
-    id: "2", 
-    name: "Ceramic Creations", 
-    description: "Handcrafted pottery and ceramic art", 
-    slug: "ceramic-creations",
-    bannerUrl: null,
-    logoUrl: null,
-    location: "Austin, TX"
-  }
-];
+// Make this page dynamic to avoid static build issues
+export const dynamic = 'force-dynamic';
 
 interface MarketplacePageProps {
   searchParams: {
@@ -51,108 +22,137 @@ interface MarketplacePageProps {
   };
 }
 
-// Add dynamic configuration to prevent static build
-export const dynamic = 'force-dynamic';
+// Loading state for categories
+function CategoriesLoading() {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="animate-pulse">
+          <div className="aspect-square bg-gray-200 rounded-md mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-1"></div>
+          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-export default async function MarketplacePage({
-  searchParams,
-}: MarketplacePageProps) {
-  // Fetch data with fallbacks for build time or errors
-  const categories = await fetchWithFallback(
-    () => getAllCategories(),
-    mockCategories
+// Loading state for storefronts
+function StorefrontsLoading() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="animate-pulse border rounded-lg p-4">
+          <div className="h-10 bg-gray-200 rounded w-3/4 mb-3"></div>
+          <div className="h-24 bg-gray-200 rounded mb-3"></div>
+          <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+        </div>
+      ))}
+    </div>
   );
-  
-  const topCategories = await fetchWithFallback(
-    () => getTopCategories(),
-    mockCategories.slice(0, 3)
+}
+
+// Loading state for sidebar
+function SidebarLoading() {
+  return (
+    <div className="animate-pulse space-y-4">
+      <div className="h-8 bg-gray-200 rounded w-1/2 mb-4"></div>
+      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-2/3 mb-6"></div>
+      
+      <div className="h-8 bg-gray-200 rounded w-1/2 mb-4"></div>
+      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+    </div>
   );
+}
+
+// Categories container component
+async function CategoriesContainer() {
+  const categories = await getTopCategories(6);
   
-  const featuredStorefronts = await fetchWithFallback(
-    () => getFeaturedStorefronts(6),
-    mockStorefronts
-  );
+  if (categories.length === 0) {
+    return (
+      <div className="text-center py-12 border rounded-lg">
+        <p className="text-muted-foreground">
+          No categories available yet.
+        </p>
+      </div>
+    );
+  }
   
-  // Parse search parameters
-  const query = searchParams?.query || "";
-  const category = searchParams?.category || "";
-  const pageParam = searchParams?.page || "1";
-  const perPageParam = searchParams?.perPage || "12";
+  return <CategoryShowcase categories={categories} />;
+}
+
+// Storefronts container component
+async function StorefrontsContainer() {
+  const storefronts = await getFeaturedStorefronts(6);
   
-  const page = parseInt(pageParam);
-  const perPage = parseInt(perPageParam);
-  
-  // Create sanitized searchParams object
-  const safeSearchParams = {
-    query,
-    category,
-    page: pageParam,
-    perPage: perPageParam,
-    sort: searchParams?.sort || "newest",
-    priceMin: searchParams?.priceMin || "",
-    priceMax: searchParams?.priceMax || ""
-  };
+  if (storefronts.length === 0) {
+    return (
+      <div className="text-center py-12 border rounded-lg">
+        <p className="text-muted-foreground">
+          No featured storefronts available yet.
+        </p>
+      </div>
+    );
+  }
   
   return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {storefronts.map((storefront) => (
+        <StorefrontCard 
+          key={storefront.id} 
+          storefront={storefront}
+          imageSize="medium"
+        />
+      ))}
+    </div>
+  );
+}
+
+// Sidebar container component 
+async function SidebarContainer() {
+  const categories = await getAllCategories();
+  
+  return (
+    <FilterSidebar 
+      categories={categories}
+      activePriceRange={[0, 1000]}
+    />
+  );
+}
+
+export default function MarketplacePage({ searchParams }: MarketplacePageProps) {
+  return (
     <div className="container py-8">
-      <h1 className="text-3xl font-bold mb-6">Browse Craftsman Products</h1>
+      <h1 className="text-3xl font-bold mb-8">CraftsMatch Marketplace</h1>
       
       <div className="mb-8">
-        <SearchBar placeholder="Search for products..." />
+        <SearchBar placeholder="Search for crafts, products, or artisans..." />
+      </div>
+      
+      <div className="mb-12">
+        <h2 className="text-2xl font-bold mb-6">Popular Categories</h2>
+        <Suspense fallback={<CategoriesLoading />}>
+          <CategoriesContainer />
+        </Suspense>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         <div className="md:col-span-1">
-          <FilterSidebar categories={categories} />
+          <Suspense fallback={<SidebarLoading />}>
+            <SidebarContainer />
+          </Suspense>
         </div>
         
         <div className="md:col-span-3">
-          <Suspense fallback={<div>Loading categories...</div>}>
-            <CategoryShowcase categories={topCategories} />
+          <h2 className="text-2xl font-bold mb-6">Featured Storefronts</h2>
+          <Suspense fallback={<StorefrontsLoading />}>
+            <StorefrontsContainer />
           </Suspense>
-          
-          {/* Featured Storefronts */}
-          <div className="mt-12 mb-12">
-            <h2 className="text-2xl font-semibold mb-6">Featured Storefronts</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {featuredStorefronts.map((storefront) => (
-                <StorefrontCard 
-                  key={storefront.id} 
-                  storefront={storefront}
-                  imageSize="medium"
-                />
-              ))}
-            </div>
-          </div>
-          
-          <div className="mt-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">All Products</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Sort by:</span>
-                <select className="border rounded-md p-2 text-sm">
-                  <option value="newest">Newest</option>
-                  <option value="priceAsc">Price: Low to High</option>
-                  <option value="priceDesc">Price: High to Low</option>
-                  <option value="popular">Popular</option>
-                </select>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Products will be loaded here */}
-              <div className="col-span-full text-center py-12 text-gray-500">
-                Select a category or search for products to begin
-              </div>
-            </div>
-            
-            <Pagination 
-              currentPage={page} 
-              totalPages={1} 
-              baseUrl="/marketplace" 
-              searchParams={safeSearchParams}
-            />
-          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 'use server';
 
-import { db } from '@/lib/db';
-import { reviews, users, products } from '@/lib/db/schema';
+import { db, executeRawQuery } from '@/lib/db';
+import { reviews, users, products, orders } from '@/lib/db/schema';
 import { eq, and, desc, asc } from 'drizzle-orm';
 
 // Helper to safely execute queries with proper error handling
@@ -40,46 +40,41 @@ const transformReview = (review: any) => {
  */
 export async function getProductReviews(productId: string, options = { limit: 10, offset: 0, sortBy: 'date', sortOrder: 'desc' }) {
   try {
-    // Using any to avoid TypeScript errors with the db module
-    const dbSelect = db.select as any;
-    const reviews = await dbSelect()
-      .from('reviews')
-      .where(`product_id = '${productId}' AND is_published = true`);
+    // Check if we have a proper database connection
+    if (typeof db.query?.reviews?.findMany !== 'function') {
+      console.warn('Using direct SQL query for getProductReviews');
+      // Use direct SQL instead
+      const results = await executeRawQuery(`
+        SELECT r.*, reviewer.full_name as reviewer_name, 
+               reviewer.avatar_url as reviewer_avatar
+        FROM reviews r
+        JOIN users reviewer ON r.reviewer_id = reviewer.id
+        WHERE r.product_id = $1 AND r.is_published = true
+        ORDER BY r.created_at DESC
+      `, [productId]);
+      
+      return results || [];
+    }
     
-    // Sort and paginate in memory
-    const sorted = [...reviews].sort((a, b) => {
-      if (options.sortBy === 'rating') {
-        return options.sortOrder === 'desc' ? b.rating - a.rating : a.rating - b.rating;
-      } else {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return options.sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-      }
+    // Use Drizzle ORM
+    return await db.query.reviews.findMany({
+      where: and(
+        eq(reviews.productId, productId),
+        eq(reviews.isPublished, true)
+      ),
+      with: {
+        reviewer: {
+          columns: {
+            fullName: true,
+            avatarUrl: true
+          }
+        }
+      },
+      orderBy: [desc(reviews.createdAt)]
     });
-    
-    const paginated = sorted.slice(
-      options.offset, 
-      options.offset + options.limit
-    );
-    
-    return {
-      reviews: paginated.map(transformReview),
-      pagination: {
-        total: reviews.length,
-        limit: options.limit,
-        offset: options.offset,
-      }
-    };
   } catch (error) {
     console.error('Error fetching product reviews:', error);
-    return {
-      reviews: [],
-      pagination: {
-        total: 0,
-        limit: options.limit,
-        offset: options.offset,
-      }
-    };
+    return [];
   }
 }
 
@@ -136,15 +131,48 @@ export async function getCraftsmanReviews(craftsmanId: string, options = { limit
  */
 export async function getReviewById(reviewId: string) {
   try {
-    // Using any to avoid TypeScript errors with the db module
-    const dbSelect = db.select as any;
-    const results = await dbSelect()
-      .from('reviews')
-      .where(`id = '${reviewId}'`);
+    // Check if we have a proper database connection
+    if (typeof db.query?.reviews?.findFirst !== 'function') {
+      console.warn('Using direct SQL query for getReviewById');
+      // Use direct SQL instead
+      const results = await executeRawQuery(`
+        SELECT r.*, p.name as product_name, p.slug as product_slug,
+               recipient.full_name as craftsman_name,
+               reviewer.full_name as reviewer_name
+        FROM reviews r
+        JOIN products p ON r.product_id = p.id
+        JOIN users recipient ON r.recipient_id = recipient.id
+        JOIN users reviewer ON r.reviewer_id = reviewer.id
+        WHERE r.id = $1
+        LIMIT 1
+      `, [reviewId]);
+      
+      return results.length > 0 ? results[0] : null;
+    }
     
-    return results.length > 0 ? transformReview(results[0]) : null;
+    // Use Drizzle ORM
+    return await db.query.reviews.findFirst({
+      where: eq(reviews.id, reviewId),
+      with: {
+        product: true,
+        reviewer: {
+          columns: {
+            id: true,
+            fullName: true,
+            avatarUrl: true
+          }
+        },
+        recipient: {
+          columns: {
+            id: true,
+            fullName: true,
+            avatarUrl: true
+          }
+        }
+      }
+    });
   } catch (error) {
-    console.error('Error fetching review:', error);
+    console.error('Error fetching review by ID:', error);
     return null;
   }
 }
@@ -220,30 +248,39 @@ export async function getCraftsmanRatingSummary(craftsmanId: string) {
  */
 export async function getUserWrittenReviews(userId: string) {
   try {
-    // This would normally query the database
-    // For now, we'll return mock data
-    return [
-      {
-        id: '1',
-        rating: 4,
-        comment: 'Great product, exactly as described!',
-        createdAt: new Date().toISOString(),
-        productId: 'prod-1',
-        productName: 'Handcrafted Wooden Table',
-        sellerId: 'seller-1',
-        sellerName: 'John Craftsman'
+    // Check if we have a proper database connection
+    if (typeof db.query?.reviews?.findMany !== 'function') {
+      console.warn('Using direct SQL query for getUserWrittenReviews');
+      // Use direct SQL instead
+      const results = await executeRawQuery(`
+        SELECT r.*, p.name as product_name, p.slug as product_slug,
+               recipient.full_name as craftsman_name,
+               p.image_url as product_image
+        FROM reviews r
+        JOIN products p ON r.product_id = p.id
+        JOIN users recipient ON r.recipient_id = recipient.id
+        WHERE r.reviewer_id = $1
+        ORDER BY r.created_at DESC
+      `, [userId]);
+      
+      return results || [];
+    }
+    
+    // Use Drizzle ORM
+    return await db.query.reviews.findMany({
+      where: eq(reviews.reviewerId, userId),
+      with: {
+        product: true,
+        recipient: {
+          columns: {
+            id: true,
+            fullName: true,
+            avatarUrl: true
+          }
+        }
       },
-      {
-        id: '2',
-        rating: 5,
-        comment: 'Excellent service and fantastic quality.',
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        productId: 'prod-2',
-        productName: 'Ceramic Vase',
-        sellerId: 'seller-2',
-        sellerName: 'Pottery Studio'
-      }
-    ];
+      orderBy: [desc(reviews.createdAt)]
+    });
   } catch (error) {
     console.error('Error fetching user written reviews:', error);
     return [];
@@ -257,40 +294,39 @@ export async function getUserWrittenReviews(userId: string) {
  */
 export async function getUserReceivedReviews(userId: string) {
   try {
-    // This would normally query the database
-    // For now, we'll return mock data
-    return [
-      {
-        id: '3',
-        rating: 5,
-        comment: 'Amazing craftsmanship, will definitely order again!',
-        createdAt: new Date().toISOString(),
-        buyerId: 'buyer-1',
-        buyerName: 'Sarah Johnson',
-        productId: 'prod-3',
-        productName: 'Custom Wood Carving'
+    // Check if we have a proper database connection
+    if (typeof db.query?.reviews?.findMany !== 'function') {
+      console.warn('Using direct SQL query for getUserReceivedReviews');
+      // Use direct SQL instead
+      const results = await executeRawQuery(`
+        SELECT r.*, p.name as product_name, p.slug as product_slug,
+               reviewer.full_name as reviewer_name,
+               p.image_url as product_image
+        FROM reviews r
+        JOIN products p ON r.product_id = p.id
+        JOIN users reviewer ON r.reviewer_id = reviewer.id
+        WHERE r.recipient_id = $1
+        ORDER BY r.created_at DESC
+      `, [userId]);
+      
+      return results || [];
+    }
+    
+    // Use Drizzle ORM
+    return await db.query.reviews.findMany({
+      where: eq(reviews.recipientId, userId),
+      with: {
+        product: true,
+        reviewer: {
+          columns: {
+            id: true,
+            fullName: true,
+            avatarUrl: true
+          }
+        }
       },
-      {
-        id: '4',
-        rating: 4,
-        comment: 'Very good quality and fast shipping.',
-        createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        buyerId: 'buyer-2',
-        buyerName: 'Michael Thompson',
-        productId: 'prod-4',
-        productName: 'Leather Journal'
-      },
-      {
-        id: '5',
-        rating: 5,
-        comment: 'Exceeded my expectations in every way!',
-        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        buyerId: 'buyer-3',
-        buyerName: 'Emily Williams',
-        productId: 'prod-5',
-        productName: 'Hand-blown Glass Set'
-      }
-    ];
+      orderBy: [desc(reviews.createdAt)]
+    });
   } catch (error) {
     console.error('Error fetching user received reviews:', error);
     return [];

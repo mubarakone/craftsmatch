@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import RatingInput from "@/components/reviews/rating-input";
 import { toast } from "@/components/ui/use-toast";
+import { Star } from "lucide-react";
 
 // Create a simplified schema type for the form
 type ReviewFormValues = z.infer<typeof reviewSchema>;
@@ -112,105 +113,52 @@ export default function ReviewForm({
       </CardHeader>
       
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            {/* Rating */}
-            <FormField
-              control={form.control}
-              name="rating"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Your Rating</FormLabel>
-                  <FormControl>
-                    <RatingInput
-                      value={field.value}
-                      onChange={field.onChange}
-                      disabled={isSubmitting}
-                      size="lg"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            {/* Review Title (Optional) */}
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Review Title (Optional)</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value || ""}
-                      placeholder="Summarize your experience"
-                      disabled={isSubmitting}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            {/* Review Content */}
-            <FormField
-              control={form.control}
-              name="content"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Your Review</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      {...field}
-                      placeholder="Share details about your experience..."
-                      className="min-h-[120px]"
-                      disabled={isSubmitting}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            {/* Public Review Option */}
-            <FormField
-              control={form.control}
-              name="isPublic"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-2">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isSubmitting}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Make this review public</FormLabel>
-                    <p className="text-sm text-muted-foreground">
-                      Your review will be visible to other users on the platform
-                    </p>
-                  </div>
-                </FormItem>
-              )}
-            />
-          </CardContent>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">Rating</label>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById("rating") as HTMLInputElement;
+                    if (input) {
+                      input.value = value.toString();
+                      input.dispatchEvent(new Event("change"));
+                    }
+                  }}
+                  className="focus:outline-none"
+                >
+                  <Star
+                    className={`h-8 w-8 ${
+                      value <= Number(document.getElementById("rating")?.value || 0)
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "fill-gray-200 text-gray-200"
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+            <input type="hidden" id="rating" name="rating" value="0" />
+          </div>
           
-          <CardFooter className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSubmitting}
-              onClick={() => router.back()}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Submitting..." : "Submit Review"}
-            </Button>
-          </CardFooter>
+          <div>
+            <label htmlFor="comment" className="block text-sm font-medium mb-2">
+              Your Review
+            </label>
+            <Textarea
+              id="comment"
+              name="comment"
+              placeholder="Share your experience with the product and craftsman..."
+              className="min-h-[120px]"
+              required
+            />
+          </div>
+          
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : "Submit Review"}
+          </Button>
         </form>
       </Form>
     </Card>

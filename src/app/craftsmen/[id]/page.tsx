@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
+import { db, executeRawQuery } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 
 // Mock craftsmen profiles for detail pages (used as fallback)
@@ -76,6 +76,9 @@ const mockCraftsmenProfiles = {
   }
 };
 
+// Make this page dynamic to avoid static build issues
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ params }: { params: { id: string } }) {
   const craftsman = await getCraftsmanProfile(params.id);
   
@@ -93,23 +96,147 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 }
 
 async function getCraftsmanProfile(id: string) {
-  const supabase = createClient();
-  
   try {
-    // Fetch from the database
-    const { data, error } = await supabase
-      .from("craftsman_profiles")
-      .select("*")
-      .eq("id", id)
-      .single();
+    // Check if we have a proper database connection
+    if (!db || typeof db.query?.users?.findFirst !== 'function') {
+      console.warn('Using direct SQL query or mock data for getCraftsmanProfile');
       
-    if (error) {
-      console.error("Error fetching craftsman profile:", error);
-      // Fall back to mock data if there's an error
+      // Try direct SQL if we have executeRawQuery
+      if (typeof executeRawQuery === 'function') {
+        try {
+          // First try to query by user_id (most likely case)
+          let results = await executeRawQuery(`
+            SELECT 
+              cp.id,
+              cp.business_name,
+              cp.location,
+              cp.specialty as specialization,
+              cp.experience_years as years_of_experience,
+              cp.description,
+              u.avatar_url as profile_image,
+              cp.website,
+              cp.phone_number
+            FROM craftsman_profiles cp
+            JOIN users u ON cp.user_id = u.id
+            WHERE u.id = $1
+            LIMIT 1
+          `, [id]);
+          
+          // If no results, try by craftsman profile id
+          if (!results || results.length === 0) {
+            results = await executeRawQuery(`
+              SELECT 
+                cp.id,
+                cp.business_name,
+                cp.location,
+                cp.specialty as specialization,
+                cp.experience_years as years_of_experience,
+                cp.description,
+                u.avatar_url as profile_image,
+                cp.website,
+                cp.phone_number
+              FROM craftsman_profiles cp
+              JOIN users u ON cp.user_id = u.id
+              WHERE cp.id = $1
+              LIMIT 1
+            `, [id]);
+          }
+          
+          if (results && results.length > 0) {
+            return results[0];
+          }
+          
+          // Log the query issue
+          console.log(`No craftsman found with ID ${id} in database, falling back to mock data`);
+        } catch (sqlError) {
+          console.error("SQL query error:", sqlError);
+        }
+      }
+      
+      // Fall back to mock data if SQL fails or not available
       return mockCraftsmenProfiles[id] || null;
     }
     
-    return data;
+    // Use Drizzle ORM - first try to query by user.id
+    let user = await db.query.users.findFirst({
+      where: (users, { eq }) => eq(users.id, id),
+      columns: {
+        id: true,
+        fullName: true,
+        avatarUrl: true,
+      },
+      with: {
+        craftsmanProfile: {
+          columns: {
+            businessName: true,
+            location: true,
+            specialty: true,
+            experience: true,
+            description: true,
+            website: true,
+            phoneNumber: true,
+          }
+        }
+      }
+    });
+    
+    // If no result, try to find by craftsmanProfile.id
+    if (!user || !user.craftsmanProfile) {
+      const result = await db.query.craftsmanProfiles.findFirst({
+        where: (cp, { eq }) => eq(cp.id, id),
+        columns: {
+          id: true,
+          businessName: true,
+          location: true,
+          specialty: true,
+          experience: true,
+          description: true,
+          website: true,
+          phoneNumber: true,
+          userId: true,
+        },
+        with: {
+          user: {
+            columns: {
+              id: true,
+              fullName: true,
+              avatarUrl: true,
+            }
+          }
+        }
+      });
+      
+      if (result) {
+        // Format in the same structure as expected
+        return {
+          id: result.id,
+          business_name: result.businessName,
+          location: result.location,
+          specialization: result.specialty,
+          years_of_experience: result.experience,
+          description: result.description,
+          profile_image: result.user?.avatarUrl,
+          website: result.website,
+          phone_number: result.phoneNumber
+        };
+      }
+      
+      // Fall back to mock data if nothing found
+      return mockCraftsmenProfiles[id] || null;
+    }
+    
+    // Format the response to match expected structure
+    return {
+      id: user.id,
+      business_name: user.craftsmanProfile.businessName || user.fullName,
+      location: user.craftsmanProfile.location,
+      specialization: user.craftsmanProfile.specialty,
+      years_of_experience: user.craftsmanProfile.experience,
+      description: user.craftsmanProfile.description,
+      profile_image: user.avatarUrl,
+      website: user.craftsmanProfile.website,
+      phone_number: user.craftsmanProfile.phoneNumber
+    };
   } catch (err) {
     console.error("Exception fetching craftsman profile:", err);
     // Fall back to mock data if there's an exception
@@ -117,9 +244,24 @@ async function getCraftsmanProfile(id: string) {
   }
 }
 
+// Separate component to handle async session
+async function ContactButton({ craftsman, id }: { craftsman: any; id: string }) {
+  // Get session in a separate component to avoid direct cookies access in the main page
+  const session = await getSession();
+  
+  return session ? (
+    <Button className="w-full">Contact</Button>
+  ) : (
+    <Button asChild className="w-full">
+      <Link href={`/sign-in?redirect=/craftsmen/${id}`}>
+        Sign in to Contact
+      </Link>
+    </Button>
+  );
+}
+
 export default async function CraftsmanProfilePage({ params }: { params: { id: string } }) {
   const craftsman = await getCraftsmanProfile(params.id);
-  const session = await getSession();
   
   if (!craftsman) {
     notFound();
@@ -194,15 +336,7 @@ export default async function CraftsmanProfilePage({ params }: { params: { id: s
               )}
               
               <div className="pt-4">
-                {session ? (
-                  <Button className="w-full">Contact</Button>
-                ) : (
-                  <Button asChild className="w-full">
-                    <Link href={`/sign-in?redirect=/craftsmen/${params.id}`}>
-                      Sign in to Contact
-                    </Link>
-                  </Button>
-                )}
+                <ContactButton craftsman={craftsman} id={params.id} />
               </div>
             </div>
           </Card>
