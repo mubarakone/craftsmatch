@@ -1,25 +1,34 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
-
-// Import schema
 import * as schema from './schema';
 
-// Environment detection
-const isBuild = process.env.NEXT_BUILD === 'true';
-const isBrowser = typeof window !== 'undefined';
+// Import various utilities
+import { isBrowser, isBuild } from '@/lib/utils';
 
-// Database URL from environment
+// Extract components from DATABASE_URL to fix incorrect hostname format
 const DATABASE_URL = process.env.DATABASE_URL;
+// Supabase direct connection should NOT have "db." prefix
+const FIXED_DATABASE_URL = DATABASE_URL?.replace(
+  /postgres:\/\/([^:]+):([^@]+)@db\.([^:]+):(\d+)\/(.+)/,
+  (_, user, pass, host, port, db) => {
+    // Fix hostname by removing "db." prefix - Supabase direct connection format
+    return `postgres://${user}:${pass}@${host}:${port}/${db}?sslmode=require`;
+  }
+);
 
-// Initialize database client with error handling
-let db: ReturnType<typeof drizzle> | null = null;
+// Global database instance
+let db: any = null;
 
-// Only initialize the database if not in build mode and not running in browser
-if (!isBuild && !isBrowser && DATABASE_URL) {
+// Initialize database connection
+if (!isBuild && !isBrowser && FIXED_DATABASE_URL) {
   try {
-    // Setup PostgreSQL client
-    const client = postgres(DATABASE_URL, { max: 1 });
+    // Setup PostgreSQL client using postgres.js with correct hostname
+    const client = postgres(FIXED_DATABASE_URL, { 
+      max: 1,
+      ssl: { rejectUnauthorized: false }
+    });
+    
     db = drizzle(client, { schema });
     
     console.log('Database connection initialized');
@@ -27,83 +36,60 @@ if (!isBuild && !isBrowser && DATABASE_URL) {
     console.error('Failed to initialize database connection:', error);
     
     // Create a mock database for fallback
-    db = createMockDatabase();
-  }
-} else {
-  console.log(`Using mock database (${isBuild ? 'build mode' : 'browser environment'})`);
-  db = createMockDatabase();
-}
-
-// Mock database interface for build time or when real connection fails
-function createMockDatabase() {
-  // Return a minimal implementation that won't break code during build
-  return {
-    select: () => ({
-      from: () => ({
-        where: () => Promise.resolve([]),
-        limit: () => Promise.resolve([]),
-        orderBy: () => Promise.resolve([]),
-        get: () => Promise.resolve(null),
-        all: () => Promise.resolve([]),
-      }),
-    }),
-    insert: () => ({
-      values: () => ({
-        returning: () => Promise.resolve([]),
-      }),
-    }),
-    update: () => ({
-      set: () => ({
-        where: () => ({
-          returning: () => Promise.resolve([]),
+    db = {
+      select: () => ({
+        from: () => ({
+          where: () => Promise.resolve([]),
+          limit: () => Promise.resolve([]),
+          orderBy: () => Promise.resolve([]),
+          get: () => Promise.resolve(null),
+          all: () => Promise.resolve([]),
         }),
       }),
-    }),
-    delete: () => ({
-      where: () => ({
-        returning: () => Promise.resolve([]),
+      insert: () => ({
+        values: () => Promise.resolve({ rows: [], rowCount: 0 }),
       }),
-    }),
-    transaction: async (fn: Function) => await fn({}),
-    execute: async () => [],
-    query: {
-      categories: {
-        findMany: async () => []
+      update: () => ({
+        set: () => ({
+          where: () => Promise.resolve({ rows: [], rowCount: 0 }),
+        }),
+      }),
+      delete: () => ({
+        where: () => Promise.resolve({ rows: [], rowCount: 0 }),
+      }),
+      query: {
+        users: {
+          findMany: () => Promise.resolve([]),
+          findFirst: () => Promise.resolve(null),
+        },
       },
-      products: {
-        findMany: async () => []
-      },
-      storefronts: {
-        findMany: async () => []
-      },
-      users: {
-        findMany: async () => []
-      }
-    }
-  };
+    };
+  }
 }
 
+// Export database instance
+export { db };
+
 /**
- * Helper function to execute a raw SQL query directly
- * Useful for complex queries not easily expressed with Drizzle
+ * Execute raw SQL query as a fallback when ORM access fails
  */
-export async function executeRawQuery<T = any>(
-  sql: string, 
-  params: any[] = []
-): Promise<T[]> {
-  if (!DATABASE_URL || isBuild || isBrowser) {
-    console.warn('Raw query execution skipped in build/browser environment');
+export async function executeRawQuery<T>(sql: string, params: any[] = []): Promise<T[]> {
+  if (!FIXED_DATABASE_URL) {
+    console.warn('No DATABASE_URL provided for raw query execution');
     return [];
   }
   
   try {
-    const client = postgres(DATABASE_URL, { max: 1 });
+    // For raw queries, use postgres.js with corrected hostname
+    const client = postgres(FIXED_DATABASE_URL, { 
+      max: 1,
+      ssl: { rejectUnauthorized: false }
+    });
+    
     const result = await client.unsafe(sql, params);
-    return result as T[];
+    return result as unknown as T[];
   } catch (error) {
     console.error('Error executing raw query:', error);
-    throw error;
+    return [];
   }
 }
-
-export { db };

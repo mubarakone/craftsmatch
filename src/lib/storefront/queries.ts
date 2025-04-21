@@ -213,31 +213,39 @@ export async function getStorefrontProducts(storefrontId: string) {
 /**
  * Retrieves featured storefronts for the marketplace homepage
  */
-export async function getFeaturedStorefronts(limit = 4) {
+export async function getFeaturedStorefronts() {
   try {
-    // Check if we have a proper database connection with proper methods
-    if (typeof db.select !== 'function') {
-      console.warn('Using direct SQL query for getFeaturedStorefronts');
-      // Fallback to direct SQL query
-      return await executeRawQuery(`
-        SELECT s.id, s.name, s.description, s.logo_url, s.slug,
-               u.full_name as owner_name
+    if (db) {
+      // Use ORM if database is available
+      return await db.query.storefronts.findMany({
+        where: eq(storefronts.isFeatured, true),
+        limit: 8,
+        with: {
+          owner: {
+            columns: {
+              id: true,
+              fullName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      });
+    } else {
+      // Fallback to direct SQL with IPv4 forcing
+      console.warn("Using direct SQL for getFeaturedStorefronts (db connection unavailable)");
+      
+      const sql = `
+        SELECT s.*, u.full_name as owner_name, u.avatar_url
         FROM storefronts s
-        JOIN users u ON s.user_id = u.id
-        ORDER BY s.updated_at DESC
-        LIMIT $1
-      `, [limit]);
+        JOIN users u ON s.owner_id = u.id
+        WHERE s.is_featured = true
+        LIMIT 8
+      `;
+      
+      return await executeRawQuery(sql);
     }
-    
-    // In a real app, you'd have some criteria for featuring storefronts
-    // For now, we'll just get the most recently updated ones
-    return await db
-      .select()
-      .from(storefronts)
-      .orderBy(desc(storefronts.updatedAt))
-      .limit(limit);
   } catch (error) {
-    console.error('Error fetching featured storefronts:', error);
+    console.error("Error fetching featured storefronts:", error);
     return [];
   }
 } 

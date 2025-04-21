@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db, executeRawQuery } from "@/lib/db";
 import { products, categories, users, craftsmanProfiles, productImages } from "@/lib/db/schema";
 import { eq, desc, like, and, or } from "drizzle-orm";
 
@@ -29,28 +29,43 @@ export async function getFeaturedProducts(limit = 6) {
   }
 }
 
-export async function getTopCategories(limit = 6) {
+export async function getTopCategories(limit = 6): Promise<any[]> {
   try {
-    // Handle both real DB and mock DB
-    if (typeof db.query?.categories?.findMany !== 'function') {
-      return [];
-    }
-    
-    const topCategories = await db.query.categories.findMany({
-      with: {
-        products: {
-          limit: 1,
-          with: {
-            images: {
-              limit: 1,
+    if (db) {
+      // Use ORM if available
+      if (typeof db.query?.categories?.findMany !== 'function') {
+        return [];
+      }
+      
+      const topCategories = await db.query.categories.findMany({
+        with: {
+          products: {
+            limit: 1,
+            with: {
+              images: {
+                limit: 1,
+              },
             },
           },
         },
-      },
-      limit,
-    });
+        limit,
+      });
 
-    return topCategories;
+      return topCategories;
+    } else {
+      // Direct SQL fallback with IPv4 forcing
+      console.warn("Using direct SQL for getTopCategories (db connection unavailable)");
+      
+      const sql = `
+        SELECT c.id, c.name, c.slug, c.description, c.icon
+        FROM categories c
+        WHERE c.is_featured = true
+        ORDER BY c.name
+        LIMIT 8
+      `;
+      
+      return await executeRawQuery(sql);
+    }
   } catch (error) {
     console.error("Error fetching top categories:", error);
     return [];

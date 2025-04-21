@@ -1,6 +1,10 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+// Environment detection utilities
+export const isBrowser = typeof window !== 'undefined';
+export const isBuild = process.env.NEXT_BUILD === 'true';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

@@ -248,41 +248,31 @@ export async function getCraftsmanRatingSummary(craftsmanId: string) {
  */
 export async function getUserWrittenReviews(userId: string) {
   try {
-    // Check if we have a proper database connection
-    if (typeof db.query?.reviews?.findMany !== 'function') {
-      console.warn('Using direct SQL query for getUserWrittenReviews');
-      // Use direct SQL instead
-      const results = await executeRawQuery(`
-        SELECT r.*, p.name as product_name, p.slug as product_slug,
-               recipient.full_name as craftsman_name,
-               p.image_url as product_image
+    if (db) {
+      // Use ORM if database is available
+      return await db.query.reviews.findMany({
+        where: eq(reviews.reviewerId, userId),
+        orderBy: [desc(reviews.createdAt)],
+        with: {
+          product: true,
+        },
+      });
+    } else {
+      // Fallback to direct SQL with IPv4 forcing
+      console.warn("Using direct SQL for getUserWrittenReviews (db connection unavailable)");
+      
+      const sql = `
+        SELECT r.*, p.name as product_name, p.image_url as product_image
         FROM reviews r
         JOIN products p ON r.product_id = p.id
-        JOIN users recipient ON r.recipient_id = recipient.id
         WHERE r.reviewer_id = $1
         ORDER BY r.created_at DESC
-      `, [userId]);
+      `;
       
-      return results || [];
+      return await executeRawQuery(sql, [userId]);
     }
-    
-    // Use Drizzle ORM
-    return await db.query.reviews.findMany({
-      where: eq(reviews.reviewerId, userId),
-      with: {
-        product: true,
-        recipient: {
-          columns: {
-            id: true,
-            fullName: true,
-            avatarUrl: true
-          }
-        }
-      },
-      orderBy: [desc(reviews.createdAt)]
-    });
   } catch (error) {
-    console.error('Error fetching user written reviews:', error);
+    console.error("Error fetching user written reviews:", error);
     return [];
   }
 }
